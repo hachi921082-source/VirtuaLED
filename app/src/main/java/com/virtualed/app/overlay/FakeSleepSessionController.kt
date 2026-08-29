@@ -9,6 +9,7 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.virtualed.app.R
+import com.virtualed.app.autostop.ProximityMonitor
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.DndState
 import com.virtualed.app.data.FeatureEnabledState
@@ -41,6 +42,14 @@ class FakeSleepSessionController(
     // isHeld による二重取得ガードのため、フィールドとして保持する (§4)。
     private var wakeLock: PowerManager.WakeLock? = null
 
+    // 近接センサーによる一時的な描画抑止のみを行う。WakeLock・保留通知トラッキング・
+    // セッション状態には影響しない (docs/plans/other/auto-stop-conditions/PLAN-1-proximity.md §3)。
+    // 将来的には burn-in-protection の再配置ループもこの被覆状態に連動して一時停止/再開する
+    // 想定だが、その機能自体は未実装のためここでは何も呼び出さない (docs/DECISIONS.md §20)。
+    private val proximityMonitor = ProximityMonitor(context) { covered ->
+        FakeSleepActivityHolder.indicatorUiState?.indicatorVisible?.value = !covered
+    }
+
     init {
         FakeSleepActivityHolder.sessionController = this // 自己登録。Service 側はこの1回の
         // コンストラクタ呼び出しでインスタンスを保持するだけでよく、別途の配線呼び出しは不要。
@@ -60,6 +69,7 @@ class FakeSleepSessionController(
 
     private fun startSession() {
         sessionActive = true
+        proximityMonitor.start()
         withScreenOffProcessingGuard {
             val fullScreenPendingIntent = PendingIntent.getActivity(
                 context,
@@ -81,6 +91,7 @@ class FakeSleepSessionController(
     fun endSession() {
         NotificationManagerCompat.from(context).cancel(FAKE_SLEEP_NOTIFICATION_ID) // 既に消えていても no-op
         FakeSleepActivityHolder.current?.finish()
+        proximityMonitor.stop()
         sessionActive = false
     }
 
