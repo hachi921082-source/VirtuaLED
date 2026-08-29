@@ -53,4 +53,18 @@
     <string name="keyword_settings_add_button">追加</string>
     <string name="keyword_settings_remove_button">削除</string>
     <string name="keyword_settings_empty_keywords">登録済みのキーワードはありません</string>
+
+    <!-- docs/plans/other/category-icons-and-assets/PLAN.md §4/§7 -->
+    <string name="settings_category_settings_button">カテゴリ設定</string>
+    <string name="category_settings_title">カテゴリ設定</string>
+    <string name="category_settings_back_button">戻る</string>
+    <string name="category_settings_pick_app_label">アプリを選択</string>
+    <string name="category_settings_no_app_selected">アプリを選択してください</string>
+    <string name="category_settings_category_label">カテゴリ</string>
+    <string name="category_settings_category_unset">未設定</string>
+    <string name="category_settings_category_phone">電話</string>
+    <string name="category_settings_category_mail">メール</string>
+    <string name="category_settings_category_sns">SNS</string>
+    <string name="category_settings_category_calendar">カレンダー</string>
+    <string name="category_settings_category_other">その他</string>
 </resources>
