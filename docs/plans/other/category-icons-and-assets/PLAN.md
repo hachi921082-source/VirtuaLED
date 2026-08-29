@@ -112,3 +112,33 @@ constructs the whole `slots` list itself (each slot's `category` already resolve
   simultaneous category icons; this plan only defines the assets and single-slot render path.
 - `PendingNotificationInfo.packageName` (`docs/plans/mvp/notification-detection-dot-indicator/`)
   is the `CategoryMapper.resolve()` input.
+
+## Implementation Deviation Notes
+
+- `FakeSleepSessionController.recomputeImportance()`/`recomputeImportanceNow()` were renamed to
+  `recomputeIndicatorState()`/`recomputeIndicatorStateNow()` and merged category resolution into
+  the same method/pass, rather than adding a sibling `applyCategory()` helper as sketched in §5.
+- `applyCategory()` was not implemented as a standalone function; its logic (single-slot
+  `mapIndexed` write) lives inline inside `recomputeIndicatorState()` alongside the existing
+  `highImportance` write.
+- Category for the single MVP slot resolves from `pendingRepo.snapshot().maxByOrNull { it.postTime
+  }` (most recently posted pending notification), not any other pending notification.
+- The attribution comment location is a per-drawable-file XML comment (in each
+  `ic_notify_*.xml`), not a shared `res/drawable/THIRD_PARTY_LICENSES.md` — Android resource
+  directory filename rules (lowercase alphanumeric/underscore only) reject a `.md` file in
+  `res/drawable/`.
+- The five icons use classic Material Icons (not the newer variable-font Material Symbols) path
+  data for `call`, `email`, `forum`, `event`, and `notifications`; both icon sets are Apache
+  License 2.0 from the same Google repository.
+- `InstalledAppInfo`/`loadInstalledApps()` were factored out of `KeywordSettingsScreen.kt` into a
+  new shared file `app/src/main/java/com/virtualed/app/ui/InstalledAppPicker.kt`, used by both
+  `KeywordSettingsScreen` and `CategorySettingsScreen`, rather than duplicating the app-picker
+  logic.
+- The settings UI's 5th category chip ("その他") writes `category = null` (clears the assignment)
+  rather than writing an explicit `IndicatorCategory.OTHER` value, per §4's "any app with no
+  assigned category falls back to OTHER" — this keeps unassigned and explicit-OTHER visually
+  merged into one option rather than exposing the null/OTHER distinction in the UI.
+- `FakeSleepSessionController` gained a constructor parameter `categoryMapper: CategoryMapper =
+  DefaultCategoryMapper` (defaulted, so the existing `VirtuaLedForegroundService` call site is
+  unchanged) rather than having `DefaultCategoryMapper` referenced directly inside the recompute
+  method body.
