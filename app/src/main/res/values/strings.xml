@@ -22,4 +22,7 @@
     <string name="onboarding_listener_description">未読の通知を検出するために必要です。次の画面で VirtuaLED を有効にしてください。</string>
     <string name="onboarding_granted_label">許可済み</string>
     <string name="onboarding_grant_button">許可する</string>
+
+    <!-- docs/plans/other/dnd-handling/PLAN.md §4 -->
+    <string name="settings_show_during_dnd">おやすみモード中もインジケーターを表示する</string>
 </resources>
