@@ -114,6 +114,31 @@ and contradictions before writing the MVP feature plans).
     `READ_PHONE_STATE` from the permission set entirely (`docs/detailed-spec.md` §2 does not
     currently list it, since it was introduced only within this plan).
 
+16. Does an OEM's own ambient/doze wakefulness path (`PowerManager` `WAKEFULNESS_DOZING`, distinct
+    from full `WAKEFULNESS_ASLEEP`) ever prevent `FakeSleepActivity`'s full-screen-intent
+    notification from auto-launching over the lock screen?
+
+    Background: during the MVP integration test on arrows We2 Plus (`M06`), one screen-off cycle
+    left the device in `WAKEFULNESS_DOZING` (confirmed via `dumpsys power`) with `FakeSleepActivity`
+    never launching (`FakeSleepActivity` absent from `dumpsys activity activities`, keyguard genuinely
+    locked). `Settings.Secure.doze_enabled=1` on this device, but no user-facing "Always-on
+    display"/"Ambient display" toggle was found in Settings to test disabling it — the OEM (Fujitsu)
+    may implement its own always-enabled doze component (e.g. for a notification-pulse feature) with
+    no user opt-out. Logcat also showed a `WAKE_REASON_PLUGGED_IN` wake-from-Dozing event around the
+    same window, consistent with the adb USB cable's charging-state flicker interacting with the
+    doze cycle. After a full reset (USB unplugged/replugged, app force-stopped and relaunched), every
+    subsequent screen-off cycle went straight from `Awake` to the notification launching
+    `FakeSleepActivity` correctly (no repeat of the Dozing dead-end) for the remainder of the test
+    session — so the failure was not reproduced again, and it isn't confirmed whether the cause was
+    the doze component itself, the USB-cable interference, or a transient combination of both.
+
+    Not confirmable purely from this session's evidence — needs either a repeat with adb over Wi-Fi
+    (no USB cable in the loop) or a battery-only (no adb attached) test, ideally with logcat capture
+    of a reproduction, before deciding whether `FakeSleepSessionController` needs to handle
+    `WAKEFULNESS_DOZING` explicitly (e.g. via `PowerManager.isInteractive()`/wakefulness-aware
+    retry) or whether this was purely a test-harness artifact. Not a blocker — MVP integration test
+    passed once retried under normal (cable-free-equivalent) conditions.
+
 ### Resolved (continued)
 
 14. ~~Does the fake-sleep mechanism work on devices with a secure lock screen (PIN/pattern/
