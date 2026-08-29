@@ -10,8 +10,11 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.virtualed.app.R
+import com.virtualed.app.autostop.BatteryLevelReceiver
+import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.PendingNotificationsRepository
@@ -52,6 +55,10 @@ class VirtuaLedForegroundService : Service() {
     // onStartCommand() で1回だけ登録、onDestroy() で解除する。
     private var screenStateReceiver: ScreenStateReceiver? = null
 
+    // docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §3 — ACTION_BATTERY_CHANGED 用の動的登録
+    // receiver。onCreate() で1回だけ登録、onDestroy() で解除する。
+    private var batteryLevelReceiver: BatteryLevelReceiver? = null
+
     // docs/plans/other/dnd-handling/PLAN.md §5 — hideDuringDndCached の起動時読み込み専用。
     // Service にはライフサイクル対応のコルーチンスコープが標準で無いため、自前で保持し onDestroy() で cancel する。
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -64,6 +71,27 @@ class VirtuaLedForegroundService : Service() {
         // docs/plans/other/dnd-handling/PLAN.md §5 — onScreenOff() の同期ゲーティング判定に使う
         // キャッシュ値を、サービス起動時に一度だけ DataStore から読み込んでおく。
         serviceScope.launch { DndSettings.refreshCache(applicationContext) }
+
+        // docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §3 — しきい値の読み込みが非同期な
+        // ため、DataStore からの読み込み完了後に登録する。ACTION_BATTERY_CHANGED は sticky broadcast
+        // なので、登録タイミングが多少遅れても登録時点の現在値は取得できる。
+        serviceScope.launch {
+            val threshold = BatteryThresholdSettings.getThresholdPercent(applicationContext)
+            val receiver = BatteryLevelReceiver(
+                thresholdPercent = threshold,
+                onBelowThreshold = {
+                    Toast.makeText(
+                        applicationContext,
+                        getString(R.string.auto_stop_battery_toast, threshold),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    // アプリ内スイッチ OFF 経路と同等の完全停止 (PLAN-2-battery.md §4)。
+                    stopSelf()
+                },
+            )
+            registerReceiver(receiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            batteryLevelReceiver = receiver
+        }
 
         // docs/plans/mvp/onoff-notification-toggle/PLAN.md §2 — 通知アクション/アプリ内スイッチの
         // どちらからの変更でも、通知の再描画とセッションの即終了を一箇所で処理する。
@@ -132,6 +160,8 @@ class VirtuaLedForegroundService : Service() {
     override fun onDestroy() {
         screenStateReceiver?.let { unregisterReceiver(it) }
         screenStateReceiver = null
+        batteryLevelReceiver?.let { unregisterReceiver(it) }
+        batteryLevelReceiver = null
         // アプリ内スイッチ OFF 等でサービスが完全停止する際、保留中の full-screen-intent 通知の
         // キャンセルと FakeSleepActivity の終了も併せて行う (fake-sleep-overlay §6, §7)。
         sessionController.endSession()
