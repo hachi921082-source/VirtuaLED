@@ -31,6 +31,11 @@
     <!-- docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §4 -->
     <string name="auto_stop_battery_toast">バッテリー残量が %1$d%% 以下になったため停止しました</string>
 
+    <!-- docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §8 -->
+    <string name="settings_quiet_hours_enabled_label">クワイエットアワーを有効にする</string>
+    <string name="settings_quiet_hours_start_button">開始: %1$02d:%2$02d</string>
+    <string name="settings_quiet_hours_end_button">終了: %1$02d:%2$02d</string>
+
     <!-- docs/plans/other/indicator-color-customization/PLAN.md §3 -->
     <string name="settings_indicator_color_label">インジケーターの色</string>
     <string name="settings_indicator_color_hex_label">HEX (例: #FF0000)</string>
