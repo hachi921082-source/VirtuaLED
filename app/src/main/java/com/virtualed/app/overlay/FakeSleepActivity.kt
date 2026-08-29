@@ -1,6 +1,7 @@
 package com.virtualed.app.overlay
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -49,6 +50,9 @@ class FakeSleepActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
+        // アイドルタイムアウトによる画面消灯を抑止する。これが無いと OS の screen_off_timeout
+        // 経過後に電源ボタン再押下と同一の ACTION_SCREEN_OFF が飛び、セッションが誤終了する。
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         peekController = PeekInteractionController(
             activity = this,
             sessionController = sessionController,

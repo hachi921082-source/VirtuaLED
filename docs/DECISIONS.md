@@ -413,6 +413,24 @@ this round of testing) — not the Sharp AQUOS sense9, the project's other suppo
 opportunistically, though not treated as a blocker given both devices are already the same
 close-to-AOSP tier of trust established in §11.
 
+**Correction (found via full MVP on-device testing, Sharp AQUOS sense9)**: this section's claim
+above — "keeping the screen lit for the session's duration is now handled by `setTurnScreenOn`,
+not by an app-held `WakeLock`" — is wrong. `setTurnScreenOn(true)` only turns the screen on once,
+as part of the Activity resuming; it does not suppress the device's normal idle
+`screen_off_timeout` afterward. The original keyguard-prototype validation above was a short-lived
+check and never ran long enough to observe this. On sense9 (`screen_off_timeout` = 15000ms),
+logcat confirmed the OS fires a real `ACTION_SCREEN_OFF` ~15s after `FakeSleepActivity` is
+displayed, purely from idle timeout — indistinguishable from a genuine power-button press, so
+`dismiss-and-peek-interaction`'s power-button-dismiss logic (§6 of that PLAN.md) treated it as one
+and ended the session early, silently defeating the app's core premise (§17 above: an LED that
+doesn't turn off just because nobody has looked at it). This is universal to any device/timeout
+setting (confirmed the arrows We2 Plus is also configured for 15s), not a sense9-specific quirk —
+any finite OS screen-timeout value reproduces it, just later. Fixed by also holding
+`WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON` on `FakeSleepActivity`'s window for the session's
+duration (a real power-button press still delivers `ACTION_SCREEN_OFF` even with this flag held,
+so §6's heuristic itself remains valid — only the idle-timeout false positive is eliminated).
+`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §1/§4/§5 updated to match.
+
 ## 19. Why the MVP Build Order Was Corrected From `fake-sleep-overlay`-First to `notification-detection-dot-indicator`/`foreground-service-setup`-First
 
 `docs/plans/README.md`'s original MVP build order (`fake-sleep-overlay` →

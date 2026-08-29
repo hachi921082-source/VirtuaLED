@@ -197,6 +197,12 @@ fallback covers the (unexpected) case where the Activity reference is already go
 Service observes the second `SCREEN_OFF` — `endSession()` alone still tears down the notification
 and flips `sessionActive` off correctly.
 
+Note: "a second `SCREEN_OFF` while a session is active can only mean the power button" holds only
+because `FakeSleepActivity` also holds `WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON`
+(`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §5) — without it, the device's own idle
+screen-timeout would fire an indistinguishable `SCREEN_OFF` and trigger this same dismiss path
+with no user action at all.
+
 ## 7. Unlock Auto-Dismiss (§14)
 
 `Intent.ACTION_USER_PRESENT` is added to the same `IntentFilter` as `ACTION_SCREEN_OFF` on the
