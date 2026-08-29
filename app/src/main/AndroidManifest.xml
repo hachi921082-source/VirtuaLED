@@ -60,6 +60,17 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="screen-notification-indicator-overlay" />
         </service>
+
+        <!--
+          docs/plans/mvp/fake-sleep-overlay/PLAN.md §5 (verbatim)。
+          full-screen-intent 通知経由で OS が起動するため exported=false で問題ない。
+        -->
+        <activity
+            android:name=".overlay.FakeSleepActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.VirtuaLed.FakeSleep" />
     </application>
 
 </manifest>
