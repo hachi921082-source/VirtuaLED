@@ -14,8 +14,9 @@
 8. Feature 4 Progress (Follow-Up Session)
 9. Feature 5 Progress and a Fake-Sleep Screen-Timeout Bug Found/Fixed via Sense9 Testing (Follow-Up Session)
 10. Feature 6 Progress and MVP Completion (Follow-Up Session)
-11. Still Open
-12. Recommended Next Step
+11. MVP Integration Test and Pre-`other/`-Tier Cleanup (Follow-Up Session)
+12. Still Open
+13. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -426,7 +427,67 @@ features 1-5.
 implemented, reviewed, and merged. The only remaining MVP-tier item is the integration test itself
 (`docs/plans/README.md` row 7) — see §11/§12 below.
 
-## 11. Still Open
+## 11. MVP Integration Test and Pre-`other/`-Tier Cleanup (Follow-Up Session)
+
+This session opened by reading the previous handoff, then ran the MVP Integration Test
+(`docs/plans/README.md` row 7, the 7-step checklist) directly in the main session (no agent — real
+device interaction driven live with the user, verified at each step via `adb`/`dumpsys`/`logcat`).
+
+**Test device**: started on the Sharp AQUOS sense9 (`SH-M26`), but switched to arrows We2 Plus
+(model `M06` — the same device features 2/4 used as an unofficial smoke-test stand-in; this session
+confirmed `M06` is in fact the arrows We2 Plus's own manufacturer model number, not a third,
+unrelated device as earlier handoffs assumed) partway through, since sense9's physical power button
+was hard to press reliably. Before switching, the user confirmed We2 Plus has a secure PIN lock
+configured and that a normal power-button screen-off/on cycle genuinely re-shows the swipe/PIN
+sequence (ruling out the auto-lock-delay confound that made an early sense9 reading ambiguous).
+
+**All 7 checklist steps passed** on We2 Plus with the secure lock active. One recurring snag
+surfaced along the way (screen off → device entered `WAKEFULNESS_DOZING` instead of `WAKEFULNESS_
+ASLEEP`, and `FakeSleepActivity` never launched) — happened twice, both times resolved by force-
+stopping and relaunching the app (the second time confirmed this works without unplugging the USB
+debugging cable, weakening an initial USB-interference hypothesis). Logged as new open question
+`docs/QA.md` #16 — not isolated to a root cause, not treated as an MVP blocker since every retry
+after a reset passed cleanly. `docs/plans/README.md` row 7 now reads "Done (passed on arrows We2
+Plus / M06, secure PIN lock)" — **the MVP tier (6 features + integration test) is now fully
+complete**.
+
+**`docs/QA.md` #15 resolved via opportunistic real-device testing**, done alongside the integration
+test since a device was already in hand: with `FakeSleepActivity` showing the dot over the secure
+lock, a real call was placed to the device. While *ringing*, the incoming-call notification banner
+(reject/answer buttons) overlaid the dot without taking foreground focus, but stayed tappable — the
+reject button was tested and worked. When the call was then *answered* (a second real call, ended
+quickly to limit charges), the phone app's own full-screen in-call `Activity` genuinely took over
+the foreground from `FakeSleepActivity` (visually confirmed by the user), and `FakeSleepActivity`
+resumed automatically (same `ActivityRecord`, confirmed via `dumpsys`) once the call ended — no
+app-side code involved either way. This settles #15's original question in favor of "normal
+Activity lifecycle already handles it": `docs/plans/other/phone-call-overlay-suppression/PLAN.md`
+was rewritten from a `TelephonyManager`/`CallStateMonitor`/`READ_PHONE_STATE` mechanism to a short
+"no implementation needed" plan documenting why, and `docs/detailed-spec.md` §13 was updated to
+match.
+
+**This environment's `JAVA_HOME` issue (open since feature 6, §10) is now fixed**: added
+`org.gradle.java.home=C:/Program Files/Android/Android Studio/jbr` to `gradle.properties`, scoping
+the fix to this project's own Gradle builds rather than changing the machine's global `JAVA_HOME`
+(smaller blast radius, reversible via a tracked file, doesn't affect other tools on this machine).
+Verified with `gradlew --stop` (to clear any daemon still holding the old JVM) followed by a clean
+`assembleDebug`, with no `JAVA_HOME` override set in the shell at all — `compileDebugKotlin`
+succeeded. Manual override is no longer needed going forward. Note: this fix is machine-specific
+(hardcodes this machine's Android Studio install path) — acceptable for this personal/sideload-only
+project, but would need adjusting if the project ever builds on a different machine or CI.
+
+**Incidentally closed**: the previous handoff's open item "feature 6's live on-device toggle
+confirmation" (§10/§11 of the prior handoff — `reviewer-lite` couldn't complete it, no PIN
+available) was exercised as part of this session's integration test steps 5/6 on We2 Plus (the
+notification action's OFF toggle correctly ended the fake-sleep session while leaving the FGS
++notification+action alive; the in-app switch OFF correctly stopped the FGS completely). No longer
+an open item.
+
+**Commit granularity**: 6 commits this session, one file per commit, per
+`~/.claude/CLAUDE.md`'s "one file per commit" convention — `docs/QA.md` (twice), `docs/plans/
+README.md`, `gradle.properties`, `docs/plans/other/phone-call-overlay-suppression/PLAN.md`, and
+`docs/detailed-spec.md`.
+
+## 12. Still Open
 
 - **Package name placeholder**: `com.virtualed.app` is used throughout `docs/spec.md` and all
   `PLAN.md` files, still unconfirmed by the user — explicitly deferred (§5 above), not a blocker.
@@ -435,49 +496,40 @@ implemented, reviewed, and merged. The only remaining MVP-tier item is the integ
 - **App icon**: interim Material Symbols plan stands, final art deferred (carried over).
 - `docs/QA.md` #13 — app-to-indicator-category mapping mechanism (manual vs. auto). Deferred,
   only blocks the (non-MVP) `category-icons-and-assets` feature.
-- `docs/QA.md` #15 — whether `phone-call-overlay-suppression`'s explicit
-  `CallStateMonitor`/`READ_PHONE_STATE` mechanism is even needed, or whether normal Activity
-  lifecycle (an incoming call's own full-screen-intent Activity naturally taking foreground)
-  already achieves it for free. Not confirmable from docs alone — needs the same kind of
-  real-device prototype validation the keyguard question got (§18), when that (non-MVP) feature
-  is picked up.
+- `docs/QA.md` #16 (new, §11) — an OEM ambient/doze wakefulness path (`WAKEFULNESS_DOZING`)
+  intermittently prevented `FakeSleepActivity`'s full-screen-intent notification from
+  auto-launching, reproduced twice on arrows We2 Plus during this session's testing. Both times
+  fixed by force-stopping and relaunching the app; root cause (OEM doze component vs. USB-cable
+  interference vs. some in-app state) not isolated. Not a blocker — every retry after a reset
+  passed. Worth a repeat test via adb over Wi-Fi or fully battery-only (no adb attached) if it
+  recurs.
 - Secure-keyguard mechanism (`docs/DECISIONS.md` §18) was validated on arrows We2 Plus during
   planning, and an earlier session's manual on-device pass (§8) confirmed the actual shipped
   `fake-sleep-overlay` code path also works over a secure lock — but the specific device model used
-  for that pass wasn't recorded. This session ran extensive sense9 testing (§9) that confirmed
-  `FakeSleepActivity` renders and persists correctly on sense9, but the device was already unlocked
-  by the user before each check, so whether sense9's lock was configured as **secure**
-  (PIN/pattern/password) during that testing was not verified — a confirmed pass specifically with
-  a secure lock active on the Sharp AQUOS sense9 is still worth doing opportunistically, not a
-  blocker.
-- **Feature 6's live on-device toggle confirmation** (new, §10): `reviewer-lite` could not complete
-  a live check of the notification-action toggle (label flips ON/OFF without killing the service;
-  in-app switch OFF fully stops it) because the test device was locked with no PIN available to the
-  reviewer. Code/build review was still thorough and this was not treated as a merge blocker (same
-  handling as prior features' device-access gaps), but a real on-device pass is worth doing
-  opportunistically — a few taps per PR #7's description.
-- **This environment's `JAVA_HOME`** (new, §10): the shell's default `JAVA_HOME` is JDK 25, which
-  breaks Gradle 8.9's embedded Kotlin DSL compiler (`IllegalArgumentException: 25.0.3` in
-  `JavaVersion.parse`). Both `developer-lite` and `reviewer-lite` had to override with
-  `JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"` to build this session. Not a blocker
-  (the workaround is known and documented now), but worth fixing at the environment/shell-profile
-  level in a future session so it doesn't need rediscovering each time.
+  for that pass wasn't recorded. An earlier follow-up session ran extensive sense9 testing (§9) that
+  confirmed `FakeSleepActivity` renders and persists correctly on sense9, but the device was already
+  unlocked by the user before each check there, so whether sense9's lock was configured as
+  **secure** during that testing was not verified. This session's MVP Integration Test (§11) *did*
+  run with a confirmed secure lock, but on arrows We2 Plus, not sense9 (switched devices mid-session
+  due to a hard-to-press power button on the sense9 unit) — so a confirmed secure-lock pass
+  specifically on the Sharp AQUOS sense9 is still worth doing opportunistically, not a blocker.
+- **Package name placeholder**, **old `NO-LED` folder cleanup**, and **app icon** carry over
+  unchanged from earlier sessions (§5/§6) — none are blockers.
 
-## 12. Recommended Next Step
+## 13. Recommended Next Step
 
-**MVP is now feature-complete** — all 6 `docs/plans/mvp/` features are implemented, reviewed, and
-merged (§10). Only the integration test (row 7) remains before the MVP tier is fully done.
+**MVP is now fully complete** — all 6 `docs/plans/mvp/` features plus the integration test (§11) are
+implemented, reviewed, merged, and passed on a real device with a secure lock.
 
-1. Run the MVP Integration Test checklist (`docs/plans/README.md` row 7, full 7-step list). Much of
-   it was already exercised ad hoc on sense9 in an earlier session (§9: dot persistence,
-   tap/preview/timeout, power-button-dismiss, unlock-auto-dismiss all confirmed working with a
-   notification pending) — but the formal checklist should still be run end-to-end now that feature
-   6 exists too (its own dismiss-via-notification-action step, checklist item 5, hasn't been
-   live-tested yet, see §11), ideally with a **secure** lock actually configured on sense9 (§11's
-   still-open item) or on arrows We2 Plus.
-2. Once that passes: **tell the user** (don't silently proceed), then start the `other/` tier —
-   `reviewer-lite` cross-consistency pass on those `PLAN.md` files first (they reference MVP
-   internals that may have shifted during implementation), then implement in any order.
+1. Start the `other/` tier: a `reviewer-lite` cross-consistency pass over all 9 features/12
+   `PLAN.md` files in `docs/plans/other/` (they reference MVP internals that may have shifted during
+   implementation — `docs/plans/README.md`'s own stated first step). One of those 9 plans
+   (`phone-call-overlay-suppression`) was already pre-revised this session (§11) to match the
+   current architecture, so that particular plan should need no further changes from this pass —
+   one fewer stale reference for `reviewer-lite` to catch. After the pass: implement the `other/`
+   features in any order (no strict sequencing between them).
+2. `docs/QA.md` #13 (category mapping mechanism) needs resolving specifically before
+   `category-icons-and-assets` is implemented — not before the cross-consistency pass itself.
 3. Resolve the package name placeholder before any public release is pursued (not urgent now,
    §5/§6).
 4. When a `gh pr merge` gets blocked going forward, apply the workflow preference from §8/§9/§10:
