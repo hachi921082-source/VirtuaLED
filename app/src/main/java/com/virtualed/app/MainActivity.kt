@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -33,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.permission.PermissionChecker
@@ -112,6 +115,13 @@ fun MainSwitchScreen() {
         showDuringDnd = !DndSettings.getHideDuringDnd(context)
     }
 
+    // docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §5 — バッテリー残量しきい値設定。
+    // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値を仮表示する。
+    var batteryThreshold by remember { mutableStateOf(BatteryThresholdSettings.DEFAULT_THRESHOLD_PERCENT) }
+    LaunchedEffect(Unit) {
+        batteryThreshold = BatteryThresholdSettings.getThresholdPercent(context)
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -143,6 +153,27 @@ fun MainSwitchScreen() {
                             }
                         },
                         modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+                Column(
+                    modifier = Modifier.padding(top = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(text = stringResource(R.string.settings_battery_threshold_label, batteryThreshold))
+                    Slider(
+                        value = batteryThreshold.toFloat(),
+                        onValueChange = { batteryThreshold = it.toInt() },
+                        onValueChangeFinished = {
+                            coroutineScope.launch {
+                                BatteryThresholdSettings.setThresholdPercent(context, batteryThreshold)
+                            }
+                        },
+                        valueRange = BatteryThresholdSettings.MIN_THRESHOLD_PERCENT.toFloat()..
+                            BatteryThresholdSettings.MAX_THRESHOLD_PERCENT.toFloat(),
+                        // 1..100 の 1% 刻み (端点2つを除いた中間ステップ数)
+                        steps = BatteryThresholdSettings.MAX_THRESHOLD_PERCENT -
+                            BatteryThresholdSettings.MIN_THRESHOLD_PERCENT - 1,
+                        modifier = Modifier.width(240.dp),
                     )
                 }
             }
