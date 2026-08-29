@@ -112,7 +112,15 @@ the `other/` tier in this order:
   - [`PLAN-2-battery.md`](other/auto-stop-conditions/PLAN-2-battery.md) — Done (implemented,
     reviewed, merged PR #9). See `docs/QA.md` #18 for a minor non-blocking follow-up found during
     review.
-  - [`PLAN-3-quiet-hours.md`](other/auto-stop-conditions/PLAN-3-quiet-hours.md)
+  - [`PLAN-3-quiet-hours.md`](other/auto-stop-conditions/PLAN-3-quiet-hours.md) — Done (implemented,
+    reviewed, merged PR #14). Inexact `AlarmManager` scheduling (`QuietHoursScheduler`,
+    self-re-arming via `QuietHoursAlarmReceiver`, surviving reboot via `BootCompletedReceiver` —
+    the only `RECEIVE_BOOT_COMPLETED` consumer in this app). Live device testing (arrows We2 Plus)
+    found and fixed a real cold-start gap: `QuietHoursState` previously only updated via the
+    edge-triggered alarm, so a service restart already inside a configured window wouldn't
+    suppress until the next day's trigger — `QuietHoursScheduler.reschedule()` now also syncs the
+    flag to wall-clock reality on every call (`isWithinWindow()`, handles midnight-spanning
+    windows). Confirmed fixed via a live before/after re-test.
 - [`dnd-handling`](other/dnd-handling/PLAN.md) — Done (implemented, reviewed, merged PR #8). See
   `docs/QA.md` #17 for a minor non-blocking follow-up found during review.
 - [`multi-notification-stacking`](other/multi-notification-stacking/PLAN.md)
