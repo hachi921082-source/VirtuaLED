@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -43,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.virtualed.app.data.BatteryThresholdSettings
+import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.IndicatorColorSettings
@@ -50,6 +52,7 @@ import com.virtualed.app.data.parseHexColorOrNull
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.service.VirtuaLedForegroundService
+import com.virtualed.app.ui.KeywordSettingsScreen
 import com.virtualed.app.ui.OnboardingScreen
 import com.virtualed.app.ui.theme.VirtuaLedTheme
 import java.util.Locale
@@ -79,14 +82,21 @@ fun VirtuaLedApp() {
         mutableStateOf(PermissionChecker.hasNotificationListenerAccess(context))
     }
 
+    // docs/plans/other/importance-based-sizing/PLAN.md §3 — MainSwitchScreen ↔
+    // KeywordSettingsScreen 間のシンプルな boolean トグル切り替え。ナビゲーションライブラリは
+    // 使わず、OnboardingScreen ↔ MainSwitchScreen の切り替えと同じ方針。
+    var showKeywordSettings by remember { mutableStateOf(false) }
+
     // POST_NOTIFICATIONS は通常のランタイム許可ダイアログで足りるため、通知リスナー onboarding
     // とは独立に、起動時に一度だけ要求する (PLAN のスコープ注記参照)。
     RequestPostNotificationsPermission()
 
-    if (listenerGranted) {
-        MainSwitchScreen()
-    } else {
+    if (!listenerGranted) {
         OnboardingScreen(onAllGranted = { listenerGranted = true })
+    } else if (showKeywordSettings) {
+        KeywordSettingsScreen(onBack = { showKeywordSettings = false })
+    } else {
+        MainSwitchScreen(onOpenKeywordSettings = { showKeywordSettings = true })
     }
 }
 
@@ -114,7 +124,7 @@ private fun RequestPostNotificationsPermission() {
 // permission-onboarding のゲートを通過した後にのみ到達する
 // (docs/plans/mvp/onoff-notification-toggle/PLAN.md で本格的な UI に置き換え予定)。
 @Composable
-fun MainSwitchScreen() {
+fun MainSwitchScreen(onOpenKeywordSettings: () -> Unit = {}) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var enabled by remember { mutableStateOf(false) }
@@ -149,6 +159,13 @@ fun MainSwitchScreen() {
             IndicatorColorSettings.setColorArgb(context, colorArgb)
             FakeSleepActivityHolder.indicatorUiState?.tintColor?.value = Color(colorArgb)
         }
+    }
+
+    // docs/plans/other/importance-based-sizing/PLAN.md §5 — 高重要度時の点滅間隔設定。
+    // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値を仮表示する。
+    var blinkIntervalMs by remember { mutableStateOf(BlinkSettings.DEFAULT_INTERVAL_MS) }
+    LaunchedEffect(Unit) {
+        blinkIntervalMs = BlinkSettings.getIntervalMs(context)
     }
 
     Surface(
@@ -209,6 +226,29 @@ fun MainSwitchScreen() {
                     selectedColorArgb = indicatorColorArgb,
                     onColorChanged = onIndicatorColorChanged,
                 )
+                Column(
+                    modifier = Modifier.padding(top = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(text = stringResource(R.string.settings_blink_interval_label, blinkIntervalMs))
+                    Slider(
+                        value = blinkIntervalMs.toFloat(),
+                        onValueChange = { blinkIntervalMs = it.toLong() },
+                        onValueChangeFinished = {
+                            coroutineScope.launch {
+                                BlinkSettings.setIntervalMs(context, blinkIntervalMs)
+                            }
+                        },
+                        valueRange = BlinkSettings.MIN_INTERVAL_MS.toFloat()..BlinkSettings.MAX_INTERVAL_MS.toFloat(),
+                        modifier = Modifier.width(240.dp),
+                    )
+                }
+                Button(
+                    onClick = onOpenKeywordSettings,
+                    modifier = Modifier.padding(top = 24.dp),
+                ) {
+                    Text(text = stringResource(R.string.settings_keyword_settings_button))
+                }
             }
         }
     }
