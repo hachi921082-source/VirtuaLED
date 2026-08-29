@@ -10,8 +10,9 @@
 4. MVP Build Order Correction (Follow-Up Session)
 5. Repo Setup and Feature 1 Progress (Follow-Up Session)
 6. Feature 2 Progress (Follow-Up Session)
-7. Still Open
-8. Recommended Next Step
+7. Feature 3 Progress (Follow-Up Session)
+8. Still Open
+9. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -196,7 +197,42 @@ the Claude Code auto-mode permission classifier, present the user a choice via `
 globally in `~/.claude/CLAUDE.md` under "Blocked Git/GitHub Actions" (applies to all projects, not
 just this one), so no project-scoped memory entry was kept for it.
 
-## 7. Still Open
+## 7. Feature 3 Progress (Follow-Up Session)
+
+Implemented MVP feature 3, `permission-onboarding`, following the same branch/implement/review/PR
+flow established for features 1/2 (§5/§6): branch `feature/mvp-permission-onboarding`.
+
+**Implementation** (`developer-lite`, per PLAN §1-§5): added `PermissionChecker` (stateless
+notification-listener-access check) and `OnboardingScreen` (Compose flow: a single permission
+card, "Grant" opens `ACTION_NOTIFICATION_LISTENER_SETTINGS`, a resume-lifecycle observer re-checks
+grant state on return from Settings). `MainActivity` was restructured so the feature-2 temporary
+switch (renamed `MainSwitchScreen`, logic otherwise untouched) is now gated behind
+`OnboardingScreen` — only reachable once notification-listener access is granted. Also added
+`RequestPostNotificationsPermission()` (standard `ActivityResultContracts.RequestPermission()` on
+API 33+), closing the gap feature 2's smoke test surfaced (`POST_NOTIFICATIONS` was never
+requested at runtime). `assembleDebug` — BUILD SUCCESSFUL.
+
+**Review** (`reviewer-lite`; this pass was interrupted mid-run when the driving session's context
+was closed, then resumed from its saved transcript — noted here only because it explains the
+two-part shape of the review, not because anything was lost): conditionally approved. Code matches
+PLAN.md §1-§5 essentially verbatim; feature 1/2 unaffected (`MainSwitchScreen`'s
+ACTION_START/ACTION_STOP logic diffed byte-for-byte identical to feature 2's version, just
+renamed); build clean. Real-device pass (adb) confirmed the onboarding precondition (listener
+access genuinely ungranted) and that the `POST_NOTIFICATIONS` system dialog actually fires via
+logcat — but could not visually confirm the full flow (card renders → Grant → Settings → return →
+`MainSwitchScreen` becomes reachable): the test device locked itself with its secure PIN mid-session
+and neither the reviewer agent nor the main session had the PIN to unlock it.
+
+**Merged via PR #3** (`gh pr merge --merge --delete-branch`) without that final visual confirmation
+having happened — the user explicitly chose to proceed to merge rather than wait for it (this
+session's owner has the device PIN; a manual on-device check is still recommended but is not a
+merge blocker per that decision). The `gh pr merge` call was blocked once by the Claude Code
+auto-mode classifier; per the standing workflow preference (`~/.claude/CLAUDE.md`, "Blocked
+Git/GitHub Actions"), the user was offered a choice via `AskUserQuestion` (retry / merge manually /
+hold) and chose retry, which then succeeded. `docs/plans/README.md`'s status column now shows this
+feature as done.
+
+## 8. Still Open
 
 - **Package name placeholder**: `com.virtualed.app` is used throughout `docs/spec.md` and all
   `PLAN.md` files, still unconfirmed by the user — explicitly deferred (§5 above), not a blocker.
@@ -213,20 +249,26 @@ just this one), so no project-scoped memory entry was kept for it.
   is picked up.
 - Secure-keyguard mechanism (`docs/DECISIONS.md` §18) was validated only on arrows We2 Plus, not
   yet re-confirmed on the Sharp AQUOS sense9 — worth doing opportunistically, not a blocker.
+- **`permission-onboarding`'s on-device visual flow is unconfirmed** (§7 above): merged without
+  the reviewer or the main session ever seeing the onboarding card render or the Grant→Settings→
+  return→`MainSwitchScreen` hand-off actually happen, since the test device was PIN-locked and
+  neither had the code. Not currently a blocker (code/build/logic-level review passed, and partial
+  adb evidence — listener genuinely ungranted, POST_NOTIFICATIONS dialog firing — was consistent
+  with it working), but worth a quick manual pass by the user opportunistically, and worth keeping
+  in mind if `fake-sleep-overlay` (next, §9) surfaces anything that touches the same gating logic.
 
-## 8. Recommended Next Step
+## 9. Recommended Next Step
 
-1. Implement MVP feature 3, `permission-onboarding`, following the same
-   branch/implement/review/PR flow established in §5/§6 (branch
-   `feature/mvp-permission-onboarding`). This is also the feature that should replace
-   `foreground-service-setup`'s temporary `MainActivity` switch with the real permission-gated
-   onboarding flow (§6).
-2. Continue through the remaining corrected build order (§4): `fake-sleep-overlay`,
-   `dismiss-and-peek-interaction`, `onoff-notification-toggle`.
+1. Implement MVP feature 4, `fake-sleep-overlay`, following the same branch/implement/review/PR
+   flow established in §5/§6/§7 (branch `feature/mvp-fake-sleep-overlay`). Needs features 1 and 2
+   (§4's corrected build order), both merged.
+2. Continue through the remaining corrected build order (§4): `dismiss-and-peek-interaction`,
+   `onoff-notification-toggle`.
 3. Run the MVP Integration Test checklist (`docs/plans/README.md`) on a real device with a
    **secure** lock configured, once all 6 land — use one of the two officially supported test
    devices (Sharp AQUOS sense9 or FCNT arrows We2 Plus, `docs/DECISIONS.md` §11) for this, not an
-   arbitrary device like the `M06` used for feature 2's quick smoke test (§6).
+   arbitrary device like the `M06` used for feature 2's quick smoke test (§6). This pass should also
+   cover the still-unconfirmed `permission-onboarding` visual flow noted in §8.
 4. Once that passes: **tell the user** (don't silently proceed), then start the `other/` tier —
    `reviewer-lite` cross-consistency pass on those `PLAN.md` files first (they reference MVP
    internals that may have shifted during implementation), then implement in any order.
