@@ -55,6 +55,7 @@ import com.virtualed.app.data.parseHexColorOrNull
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.service.VirtuaLedForegroundService
+import com.virtualed.app.ui.CategorySettingsScreen
 import com.virtualed.app.ui.KeywordSettingsScreen
 import com.virtualed.app.ui.OnboardingScreen
 import com.virtualed.app.ui.theme.VirtuaLedTheme
@@ -90,6 +91,10 @@ fun VirtuaLedApp() {
     // 使わず、OnboardingScreen ↔ MainSwitchScreen の切り替えと同じ方針。
     var showKeywordSettings by remember { mutableStateOf(false) }
 
+    // docs/plans/other/category-icons-and-assets/PLAN.md §7 — 上と同じ boolean トグル方式で
+    // MainSwitchScreen ↔ CategorySettingsScreen を切り替える。
+    var showCategorySettings by remember { mutableStateOf(false) }
+
     // POST_NOTIFICATIONS は通常のランタイム許可ダイアログで足りるため、通知リスナー onboarding
     // とは独立に、起動時に一度だけ要求する (PLAN のスコープ注記参照)。
     RequestPostNotificationsPermission()
@@ -98,8 +103,13 @@ fun VirtuaLedApp() {
         OnboardingScreen(onAllGranted = { listenerGranted = true })
     } else if (showKeywordSettings) {
         KeywordSettingsScreen(onBack = { showKeywordSettings = false })
+    } else if (showCategorySettings) {
+        CategorySettingsScreen(onBack = { showCategorySettings = false })
     } else {
-        MainSwitchScreen(onOpenKeywordSettings = { showKeywordSettings = true })
+        MainSwitchScreen(
+            onOpenKeywordSettings = { showKeywordSettings = true },
+            onOpenCategorySettings = { showCategorySettings = true },
+        )
     }
 }
 
@@ -127,7 +137,10 @@ private fun RequestPostNotificationsPermission() {
 // permission-onboarding のゲートを通過した後にのみ到達する
 // (docs/plans/mvp/onoff-notification-toggle/PLAN.md で本格的な UI に置き換え予定)。
 @Composable
-fun MainSwitchScreen(onOpenKeywordSettings: () -> Unit = {}) {
+fun MainSwitchScreen(
+    onOpenKeywordSettings: () -> Unit = {},
+    onOpenCategorySettings: () -> Unit = {},
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var enabled by remember { mutableStateOf(false) }
@@ -271,6 +284,12 @@ fun MainSwitchScreen(onOpenKeywordSettings: () -> Unit = {}) {
                     modifier = Modifier.padding(top = 24.dp),
                 ) {
                     Text(text = stringResource(R.string.settings_keyword_settings_button))
+                }
+                Button(
+                    onClick = onOpenCategorySettings,
+                    modifier = Modifier.padding(top = 12.dp),
+                ) {
+                    Text(text = stringResource(R.string.settings_category_settings_button))
                 }
             }
         }
