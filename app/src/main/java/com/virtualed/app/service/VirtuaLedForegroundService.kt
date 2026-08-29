@@ -15,8 +15,10 @@ import androidx.core.app.NotificationCompat
 import com.virtualed.app.R
 import com.virtualed.app.autostop.BatteryLevelReceiver
 import com.virtualed.app.data.BatteryThresholdSettings
+import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
+import com.virtualed.app.data.KeywordRegistry
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.overlay.FakeSleepSessionController
@@ -71,6 +73,11 @@ class VirtuaLedForegroundService : Service() {
         // docs/plans/other/dnd-handling/PLAN.md §5 — onScreenOff() の同期ゲーティング判定に使う
         // キャッシュ値を、サービス起動時に一度だけ DataStore から読み込んでおく。
         serviceScope.launch { DndSettings.refreshCache(applicationContext) }
+
+        // docs/plans/other/importance-based-sizing/PLAN.md §6 — ImportanceResolver の同期評価に
+        // 使うキャッシュ値 (登録キーワード全件・点滅間隔) を、同じ理由でサービス起動時に読み込む。
+        serviceScope.launch { KeywordRegistry.refreshCache(applicationContext) }
+        serviceScope.launch { BlinkSettings.refreshCache(applicationContext) }
 
         // docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §3 — しきい値の読み込みが非同期な
         // ため、DataStore からの読み込み完了後に登録する。ACTION_BATTERY_CHANGED は sticky broadcast
