@@ -40,9 +40,10 @@ Package: `com.virtualed.app.overlay` (unless noted otherwise)
   screen-off, builds and posts the full-screen-intent notification (no longer draws anything
   itself); on session end, cancels that notification and finishes `FakeSleepActivity` if it is
   currently resumed.
-- `FakeSleepActivity` — full-screen `Activity`; calls `setShowWhenLocked(true)` and
-  `setTurnScreenOn(true)` in `onCreate()`; content view is the black background + centered dot
-  (a plain view, not a `WindowManager`-added overlay window).
+- `FakeSleepActivity` — full-screen `Activity`; calls `setShowWhenLocked(true)`,
+  `setTurnScreenOn(true)`, and holds `WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON` (see §5) in
+  `onCreate()`; content view is the black background + centered dot (a plain view, not a
+  `WindowManager`-added overlay window).
 - `FakeSleepActivityHolder` — process-wide singleton exposing two references: the
   currently-resumed `FakeSleepActivity` instance (or `null`), and the single
   `FakeSleepSessionController` instance the Service owns (set once, at Service startup — see §2).
@@ -121,8 +122,9 @@ full-screen-intent notification (§5) → the OS launches `FakeSleepActivity` vi
 ## 4. WakeLock Discipline (§16)
 
 **Narrowed scope**: no session-long or periodically-renewed `WakeLock` — `FakeSleepActivity`'s
-`setTurnScreenOn(true)` (§5) turns the screen on as part of the Activity being resumed, so keeping
-the screen lit is no longer a `WakeLock` responsibility at all. What remains is a short-lived guard
+`setTurnScreenOn(true)` (§5) turns the screen on as part of the Activity being resumed, and its
+`FLAG_KEEP_SCREEN_ON` window flag (§5) keeps it lit for the session's duration, so keeping the
+screen lit is no longer a `WakeLock` responsibility at all. What remains is a short-lived guard
 over `onScreenOff()`'s brief processing window (the gating check plus building/posting the
 full-screen-intent notification), against the CPU suspending before that work completes:
 
@@ -169,6 +171,7 @@ class FakeSleepActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_fake_sleep) // or a Compose setContent { } equivalent
         FakeSleepActivityHolder.current = this
     }
@@ -179,6 +182,14 @@ class FakeSleepActivity : ComponentActivity() {
     }
 }
 ```
+
+`FLAG_KEEP_SCREEN_ON` is required in addition to `setShowWhenLocked`/`setTurnScreenOn`: without it,
+the device's own idle screen-timeout (`screen_off_timeout`, e.g. 15s) fires a real
+`ACTION_SCREEN_OFF` broadcast while this Activity is on screen — indistinguishable from an actual
+power-button press — which prematurely ends the fake-sleep session via
+`docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md` §6's power-button-dismiss handling. The flag
+does not suppress a genuine power-button press; `ACTION_SCREEN_OFF` still fires normally for that
+case, so §6's heuristic remains correct.
 
 Content view: full-screen black (`#000000`) background, one centered dot, fixed white
 (`#FFFFFF`, per `docs/detailed-spec.md` §11's MVP default-color note), fixed position (arbitrary —
