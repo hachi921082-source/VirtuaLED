@@ -5,18 +5,23 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.virtualed.app.R
+import com.virtualed.app.data.PendingNotificationsRepository
+import com.virtualed.app.overlay.FakeSleepSessionController
+import com.virtualed.app.receiver.ScreenStateReceiver
 
 /**
  * feature ON の間、常駐する Foreground Service (specialUse タイプ)。
  *
  * docs/plans/mvp/foreground-service-setup/PLAN.md §2 を実装。
- * 通知検出/画面オフ検出/フェイクスリープ表示は別フィーチャーの担当範囲であり、
- * このクラスはサービスの骨格 (起動/停止ライフサイクルと最小通知) のみを提供する。
+ * 通知検出は別フィーチャーの担当範囲 (NotificationSyncListenerService) だが、
+ * 画面オフ検出/フェイクスリープ表示のトリガーはこのサービスがホストする
+ * (docs/plans/mvp/fake-sleep-overlay/PLAN.md §3, §7)。
  */
 class VirtuaLedForegroundService : Service() {
 
@@ -30,16 +35,18 @@ class VirtuaLedForegroundService : Service() {
         const val ACTION_STOP = "com.virtualed.app.action.STOP"
     }
 
-    // 以下のコラボレーターは onCreate() で初期化される想定 (各担当フィーチャーの PLAN.md 参照):
-    // - PendingNotificationsRepository (notification-detection-dot-indicator; 実装済みだがこの
-    //   サービスからはまだ参照しない — 参照するのは fake-sleep-overlay 実装時)
-    // - FakeSleepSessionController      (fake-sleep-overlay)
-    // - overlay タップ/dismiss 配線       (dismiss-and-peek-interaction)
+    // fake-sleep-overlay PLAN §2 が定義するセッション状態機械。onCreate() で1回だけ生成し保持する。
+    private lateinit var sessionController: FakeSleepSessionController
+
+    // ACTION_SCREEN_OFF 用の動的登録 receiver。onStartCommand() で1回だけ登録、onDestroy() で解除する。
+    private var screenStateReceiver: ScreenStateReceiver? = null
+
+    // overlay タップ/dismiss 配線 (dismiss-and-peek-interaction) はこの MVP フィーチャーのスコープ外。
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        // TODO: コラボレーター初期化 (§6 Cross-Feature Touchpoints 参照)
+        sessionController = FakeSleepSessionController(this, PendingNotificationsRepository)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -55,13 +62,21 @@ class VirtuaLedForegroundService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-        // TODO: ScreenStateReceiver をここで登録 (fake-sleep-overlay PLAN "Receiver Registration" 参照)
+        if (screenStateReceiver == null) {
+            // START_STICKY による再配信/onStartCommand の複数回呼び出しに対する二重登録ガード。
+            val receiver = ScreenStateReceiver(onScreenOff = { sessionController.onScreenOff() })
+            registerReceiver(receiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+            screenStateReceiver = receiver
+        }
         return START_STICKY
     }
 
     override fun onDestroy() {
-        // TODO: 動的登録した receiver の解除、保持中の処理用 WakeLock の解放 (fake-sleep-overlay §16)、
-        // 保留中の full-screen-intent 通知のキャンセルと FakeSleepActivity の終了 (fake-sleep-overlay §6)
+        screenStateReceiver?.let { unregisterReceiver(it) }
+        screenStateReceiver = null
+        // アプリ内スイッチ OFF 等でサービスが完全停止する際、保留中の full-screen-intent 通知の
+        // キャンセルと FakeSleepActivity の終了も併せて行う (fake-sleep-overlay §6, §7)。
+        sessionController.endSession()
         super.onDestroy()
     }
 
