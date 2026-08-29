@@ -10,18 +10,17 @@ is), and does not cover multi-icon layout/collision avoidance
 (`docs/plans/other/multi-notification-stacking/` — this plan assumes single-icon rendering, same
 as MVP's single-dot simplification, just swapping which drawable is shown).
 
-**Open question blocking the app-to-category mapping mechanism**: see `docs/QA.md` #13. Not
-decided: whether category assignment is user-assigned per app (a settings screen) or
-auto-inferred (a hardcoded package-name table). §4 below defines a `CategoryMapper` interface so the
-calling code (render-time icon selection) does not need to change regardless of which answer QA #13
-resolves to — only the resolver's internal implementation depends on that answer.
+**App-to-category mapping mechanism**: resolved (`docs/QA.md` #13, `docs/DECISIONS.md` §21) —
+user-assigned per app via a settings screen, not auto-inferred. §4 below defines a `CategoryMapper`
+interface so the calling code (render-time icon selection) doesn't depend on the resolver's
+internal implementation.
 
 ## Index
 
 1. Category Model
 2. Asset Files
 3. Fallback Default
-4. App-to-Category Mapping (open question, QA #13)
+4. App-to-Category Mapping
 5. Render-Time Integration
 6. Cross-Feature Touchpoints
 
@@ -55,13 +54,11 @@ Per `docs/detailed-spec.md` §11:
 
 ## 3. Fallback Default
 
-Any app not (yet) resolved to a specific category renders as `IndicatorCategory.OTHER`
-(`ic_notify_other.xml`) — this applies regardless of which answer QA #13 resolves to, including
-the case where the mapping mechanism itself isn't implemented yet (i.e., `CategoryMapper` can ship
-as an always-`OTHER` stub before the real mapping mechanism lands, without blocking other features
-from integrating against the interface).
+Any app the user hasn't (yet) assigned a category to renders as `IndicatorCategory.OTHER`
+(`ic_notify_other.xml`) — this is the default for every app until the user visits the settings
+screen and assigns one, not an error state.
 
-## 4. App-to-Category Mapping (open question, QA #13)
+## 4. App-to-Category Mapping (resolved, QA #13 / DECISIONS §21)
 
 ```kotlin
 interface CategoryMapper {
@@ -69,16 +66,13 @@ interface CategoryMapper {
 }
 ```
 
-Two candidate implementations, either of which can sit behind this same interface once QA #13 is
-answered:
-- **User-assigned**: a settings screen listing monitored apps, each with a category picker; backed
-  by a `packageName -> IndicatorCategory` map persisted via DataStore.
-- **Auto-inferred**: a hardcoded `packageName -> IndicatorCategory` lookup table (e.g. known dialer/
-  email/messaging/calendar package names), falling back to `OTHER` for anything not listed.
-
-Until QA #13 is resolved, ship a stub `CategoryMapper` that always returns `IndicatorCategory.OTHER`
-(§3) so this feature's rendering integration (§5) can be built and tested independent of the
-mapping decision.
+User-assigned: a settings screen listing monitored apps (installed-app picker via `PackageManager`,
+same shape as `docs/plans/other/importance-based-sizing/`'s `KeywordSettingsScreen`), each with a
+category picker; backed by a `packageName -> IndicatorCategory` map persisted via DataStore,
+write-through on every change (no separate save action). Any app with no assigned category falls
+back to `IndicatorCategory.OTHER` (§3) — this includes every app before the user has visited the
+settings screen at all, so the feature is usable (all `OTHER`) from first install without requiring
+setup first.
 
 ## 5. Render-Time Integration
 
