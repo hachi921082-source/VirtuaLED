@@ -46,6 +46,10 @@ class FakeSleepActivity : ComponentActivity() {
     // null = ドット表示 (INDICATOR_SHOWN)、非 null = プレビューテキスト表示 (PREVIEW_SHOWN)。
     private val previewLinesState = mutableStateOf<List<String>?>(null)
 
+    // other/ 階層の視覚拡張機能 (近接センサーによる一時非表示など) がここ経由で書き込む
+    // (docs/DECISIONS.md §20、docs/plans/mvp/fake-sleep-overlay/PLAN.md §7)。
+    private val indicatorUiState = FakeSleepIndicatorUiState()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
@@ -61,10 +65,12 @@ class FakeSleepActivity : ComponentActivity() {
         setContent {
             FakeSleepContent(
                 previewLinesState = previewLinesState,
+                indicatorVisibleState = indicatorUiState.indicatorVisible,
                 onTap = { peekController.onTap() },
             )
         }
         FakeSleepActivityHolder.current = this
+        FakeSleepActivityHolder.indicatorUiState = indicatorUiState
     }
 
     /** ドットからプレビューテキストへ、コンテンツ view を切り替える (同一 Activity インスタンス内)。 */
@@ -87,6 +93,9 @@ class FakeSleepActivity : ComponentActivity() {
         // endSession() 済みでも stale なコールバックが発火しないようにするバックストップ (§5)。
         peekController.cancelPreviewTimeout()
         if (FakeSleepActivityHolder.current === this) FakeSleepActivityHolder.current = null
+        if (FakeSleepActivityHolder.indicatorUiState === indicatorUiState) {
+            FakeSleepActivityHolder.indicatorUiState = null
+        }
         super.onDestroy()
     }
 }
@@ -94,9 +103,11 @@ class FakeSleepActivity : ComponentActivity() {
 @Composable
 private fun FakeSleepContent(
     previewLinesState: MutableState<List<String>?>,
+    indicatorVisibleState: MutableState<Boolean>,
     onTap: () -> Unit,
 ) {
     val previewLines = previewLinesState.value
+    val indicatorVisible = indicatorVisibleState.value
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -107,19 +118,24 @@ private fun FakeSleepContent(
             ) { onTap() },
         contentAlignment = Alignment.Center,
     ) {
-        if (previewLines == null) {
-            // 固定位置・固定色 (白) のドット。焼き付き防止の再配置・色カスタマイズは対象外。
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .background(Color.White, CircleShape),
-            )
-        } else {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                previewLines.forEach { line -> Text(text = line, color = Color.White) }
+        // 近接センサー被覆中は indicatorVisible が false になり、ドット/プレビューいずれの
+        // 描画も抑止する。previewLinesState 自体は変更しないため、被覆解除時は直前の
+        // 表示状態がそのまま復元される (docs/plans/other/auto-stop-conditions/PLAN-1-proximity.md §3)。
+        if (indicatorVisible) {
+            if (previewLines == null) {
+                // 固定位置・固定色 (白) のドット。焼き付き防止の再配置・色カスタマイズは対象外。
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .background(Color.White, CircleShape),
+                )
+            } else {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    previewLines.forEach { line -> Text(text = line, color = Color.White) }
+                }
             }
         }
     }
