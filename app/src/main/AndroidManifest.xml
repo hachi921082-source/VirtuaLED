@@ -2,10 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      機能固有の <uses-permission> はまだ含めていない (このプランでは不要)。
-      Foreground Service / full-screen-intent 等、他の権限は
-      それぞれの MVP PLAN.md 実装が担当する (docs/detailed-spec.md §2 参照)。
+      docs/plans/mvp/foreground-service-setup/PLAN.md §1 (MVP subset)。
+      RECEIVE_BOOT_COMPLETED は quiet-hours 機能実装時まで意図的に除外
+      (docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md 参照)。
+      SYSTEM_ALERT_WINDOW は不要 (docs/DECISIONS.md §18 で生 overlay window 方式を廃止済み)。
+      BIND_NOTIFICATION_LISTENER_SERVICE は <uses-permission> ではなく、
+      NotificationSyncListenerService の <service> 要素側で宣言済み (下記参照)。
     -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -36,6 +45,20 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
+        </service>
+
+        <!--
+          docs/plans/mvp/foreground-service-setup/PLAN.md §1 (verbatim)。
+          specialUse タイプの正当化 (Google Play 提出時に必要になる説明) は
+          docs/DECISIONS.md §5 参照 (現状は個人利用/限定テスト配布のため未対応)。
+        -->
+        <service
+            android:name=".service.VirtuaLedForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="screen-notification-indicator-overlay" />
         </service>
     </application>
 

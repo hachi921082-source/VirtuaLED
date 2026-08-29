@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FGS 常駐通知用の暫定 small-icon (単純なドット)。
+     システム通知バーの small icon は単色シルエットである必要があるため solid white で塗る
+     (OS 側が自動でティントする)。最終アイコンは docs/HANDOFF.md の未決事項として別途検討。
+     docs/plans/mvp/foreground-service-setup/PLAN.md §3 参照。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@color/white"
+        android:pathData="M12,12m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+</vector>

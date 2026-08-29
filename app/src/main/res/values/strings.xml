@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">VirtuaLED</string>
+
+    <!-- docs/plans/mvp/foreground-service-setup/PLAN.md §3 -->
+    <string name="fgs_channel_name">VirtuaLED ステータス</string>
+    <string name="fgs_notification_title">VirtuaLED</string>
+    <string name="fgs_status_on">有効</string>
+    <string name="fgs_status_off">無効</string>
 </resources>
