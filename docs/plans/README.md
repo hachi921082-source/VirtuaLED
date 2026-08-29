@@ -83,18 +83,25 @@ the `other/` tier in this order:
 
 - [`category-icons-and-assets`](other/category-icons-and-assets/PLAN.md) — blocked on
   `docs/QA.md` #13 (app-to-category mapping mechanism) for one section; rest of the plan is ready.
-- [`burn-in-protection`](other/burn-in-protection/PLAN.md)
+- [`burn-in-protection`](other/burn-in-protection/PLAN.md) — Done (implemented, reviewed, merged
+  PR #11). Adds `BurnInProtector` and `FakeSleepIndicatorUiState.indicatorOffset`, gated on
+  session-active/`OverlayUiState`/proximity-covered via a combined `recompute()`
+  (`docs/DECISIONS.md` §20). Two non-blocking review findings: `FakeSleepSessionController.
+  startSession()`'s `onSessionActiveChanged(true)` call is dead in every path (real activation
+  happens in `FakeSleepActivity.onCreate()`, documented as a deviation in that plan's file); the
+  indicator sits at `(0,0)` for the first ~4s of each session/rotation before the first jump
+  (matches the plan's own pseudocode, not a defect).
 - [`importance-based-sizing`](other/importance-based-sizing/PLAN.md)
 - `auto-stop-conditions` — split into three independent sub-plans:
   - [`PLAN-1-proximity.md`](other/auto-stop-conditions/PLAN-1-proximity.md) — Done (implemented,
-    reviewed; PR pending). This is the first feature to actually implement
+    reviewed, merged PR #10). This is the first feature to actually implement
     `FakeSleepIndicatorUiState` (previously only described in `docs/DECISIONS.md` §20 /
     `docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7, never coded) — scoped to just its
     `indicatorVisible` property; the other 4 documented properties (`slots`/`tintColor`/
     `blinkIntervalMs`/`indicatorOffset`) are still unimplemented, added by whichever feature needs
-    them next. `burn-in-protection` (next in build order) will extend the `ProximityMonitor`
-    callback in `FakeSleepSessionController.kt` with its own `onProximityCoveredChanged()` call, per
-    that plan's own §4 — already anticipated, not a gap.
+    them next. `burn-in-protection` (now also done, PR #11, see above) extended the
+    `ProximityMonitor` callback in `FakeSleepSessionController.kt` with its own
+    `onProximityCoveredChanged()` call, per that plan's own §4 — already anticipated, not a gap.
   - [`PLAN-2-battery.md`](other/auto-stop-conditions/PLAN-2-battery.md) — Done (implemented,
     reviewed, merged PR #9). See `docs/QA.md` #18 for a minor non-blocking follow-up found during
     review.
