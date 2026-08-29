@@ -12,7 +12,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -22,17 +24,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.service.VirtuaLedForegroundService
 import com.virtualed.app.ui.OnboardingScreen
 import com.virtualed.app.ui.theme.VirtuaLedTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,7 +102,15 @@ private fun RequestPostNotificationsPermission() {
 @Composable
 fun MainSwitchScreen() {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var enabled by remember { mutableStateOf(false) }
+
+    // docs/plans/other/dnd-handling/PLAN.md §4 — UI 表示は内部フラグ hide_during_dnd の反転表示。
+    // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (= 表示しない) を仮表示する。
+    var showDuringDnd by remember { mutableStateOf(!DndSettings.DEFAULT_HIDE_DURING_DND) }
+    LaunchedEffect(Unit) {
+        showDuringDnd = !DndSettings.getHideDuringDnd(context)
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -114,6 +129,22 @@ fun MainSwitchScreen() {
                         setForegroundServiceEnabled(context, checked)
                     }
                 )
+                Row(
+                    modifier = Modifier.padding(top = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(text = stringResource(R.string.settings_show_during_dnd))
+                    Switch(
+                        checked = showDuringDnd,
+                        onCheckedChange = { checked ->
+                            showDuringDnd = checked
+                            coroutineScope.launch {
+                                DndSettings.setHideDuringDnd(context, hide = !checked)
+                            }
+                        },
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
         }
     }

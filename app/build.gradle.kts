@@ -49,6 +49,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
     implementation("androidx.activity:activity-compose:1.9.2")
+    // docs/plans/other/dnd-handling/PLAN.md §2 — hide_during_dnd 設定の永続化に使用
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    // docs/plans/other/dnd-handling/PLAN.md §5 — Service 側の起動時キャッシュ読み込み用コルーチンスコープに使用
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.09.00")
     implementation(composeBom)

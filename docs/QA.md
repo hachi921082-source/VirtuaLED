@@ -113,6 +113,19 @@ and contradictions before writing the MVP feature plans).
     that a fresh process clears — still not conclusively isolated, but "kill and relaunch the app"
     is now a confirmed reliable workaround either way.
 
+17. `VirtuaLedForegroundService.onCreate()` launches `DndSettings.refreshCache()` fire-and-forget
+    (not awaited) before `onStartCommand()`/`ScreenStateReceiver` registration proceeds. If a
+    screen-off event fires before that DataStore read completes, `FakeSleepSessionController
+    .onScreenOff()` uses the still-default `hideDuringDndCached = true` for that one event. This
+    only produces a visible discrepancy if the user has set the toggle to its non-default value
+    (`hide_during_dnd = false`, "always show during DND") — in that narrow window, DND-active
+    sessions would be incorrectly suppressed once. Found by `reviewer-lite` during the
+    `dnd-handling` review (`docs/plans/other/dnd-handling/PLAN.md`); judged low-severity enough not
+    to block merge (default value already matches the unrefreshed cache; DataStore reads are
+    typically near-instant). Left open as a possible follow-up (e.g. have `onScreenOff()` guard
+    against a screen-off arriving before the first `refreshCache()` completes) rather than fixed
+    immediately.
+
 ### Resolved (continued)
 
 14. ~~Does the fake-sleep mechanism work on devices with a secure lock screen (PIN/pattern/

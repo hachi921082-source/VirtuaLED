@@ -12,12 +12,18 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.virtualed.app.R
+import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.overlay.FakeSleepSessionController
 import com.virtualed.app.receiver.OnOffActionReceiver
 import com.virtualed.app.receiver.ScreenStateReceiver
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * feature ON の間、常駐する Foreground Service (specialUse タイプ)。
@@ -46,10 +52,18 @@ class VirtuaLedForegroundService : Service() {
     // onStartCommand() で1回だけ登録、onDestroy() で解除する。
     private var screenStateReceiver: ScreenStateReceiver? = null
 
+    // docs/plans/other/dnd-handling/PLAN.md §5 — hideDuringDndCached の起動時読み込み専用。
+    // Service にはライフサイクル対応のコルーチンスコープが標準で無いため、自前で保持し onDestroy() で cancel する。
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         sessionController = FakeSleepSessionController(this, PendingNotificationsRepository)
+
+        // docs/plans/other/dnd-handling/PLAN.md §5 — onScreenOff() の同期ゲーティング判定に使う
+        // キャッシュ値を、サービス起動時に一度だけ DataStore から読み込んでおく。
+        serviceScope.launch { DndSettings.refreshCache(applicationContext) }
 
         // docs/plans/mvp/onoff-notification-toggle/PLAN.md §2 — 通知アクション/アプリ内スイッチの
         // どちらからの変更でも、通知の再描画とセッションの即終了を一箇所で処理する。
@@ -121,6 +135,7 @@ class VirtuaLedForegroundService : Service() {
         // アプリ内スイッチ OFF 等でサービスが完全停止する際、保留中の full-screen-intent 通知の
         // キャンセルと FakeSleepActivity の終了も併せて行う (fake-sleep-overlay §6, §7)。
         sessionController.endSession()
+        serviceScope.cancel()
         super.onDestroy()
     }
 
