@@ -7,6 +7,7 @@ import android.content.Intent
 import com.virtualed.app.data.QuietHoursSettings
 import com.virtualed.app.data.QuietHoursState
 import com.virtualed.app.receiver.QuietHoursAlarmReceiver
+import java.time.LocalTime
 import java.time.ZonedDateTime
 
 /**
@@ -34,6 +35,12 @@ class QuietHoursScheduler(private val context: Context) {
         }
         scheduleNextOccurrence(window.startHour, window.startMinute, ACTION_QUIET_HOURS_START)
         scheduleNextOccurrence(window.endHour, window.endMinute, ACTION_QUIET_HOURS_END)
+        // 次回発生の予約だけでは不十分 — reschedule() 呼び出し時点で既にウィンドウ内 (再起動直後や
+        // 設定編集直後など) の場合、次の開始アラームが発火するまで isActive() が古い値のまま
+        // 取り残される。現在時刻を都度チェックして即座に同期する (実機テストで発見)。
+        QuietHoursState.setActive(
+            isWithinWindow(LocalTime.now(), window.startHour, window.startMinute, window.endHour, window.endMinute),
+        )
     }
 
     fun scheduleNextOccurrence(hour: Int, minute: Int, action: String) {
@@ -66,5 +73,26 @@ class QuietHoursScheduler(private val context: Context) {
             candidate = candidate.plusDays(1)
         }
         return candidate.toInstant().toEpochMilli()
+    }
+
+    // now が [start, end) の範囲内かを判定する純粋関数。start > end の場合は日をまたぐウィンドウ
+    // (例: 23:43 -> 翌07:00) とみなし、start 以降 or end 未満のいずれかで在圏中とする。
+    // start == end はゼロ長ウィンドウとして常に false (在圏なし) を返す。
+    private fun isWithinWindow(
+        now: LocalTime,
+        startHour: Int,
+        startMinute: Int,
+        endHour: Int,
+        endMinute: Int,
+    ): Boolean {
+        val start = LocalTime.of(startHour, startMinute)
+        val end = LocalTime.of(endHour, endMinute)
+        return if (start == end) {
+            false
+        } else if (start < end) {
+            now >= start && now < end
+        } else {
+            now >= start || now < end
+        }
     }
 }
