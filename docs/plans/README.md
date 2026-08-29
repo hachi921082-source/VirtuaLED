@@ -86,9 +86,17 @@ the `other/` tier in this order:
 - [`burn-in-protection`](other/burn-in-protection/PLAN.md)
 - [`importance-based-sizing`](other/importance-based-sizing/PLAN.md)
 - `auto-stop-conditions` — split into three independent sub-plans:
-  - [`PLAN-1-proximity.md`](other/auto-stop-conditions/PLAN-1-proximity.md)
+  - [`PLAN-1-proximity.md`](other/auto-stop-conditions/PLAN-1-proximity.md) — Done (implemented,
+    reviewed; PR pending). This is the first feature to actually implement
+    `FakeSleepIndicatorUiState` (previously only described in `docs/DECISIONS.md` §20 /
+    `docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7, never coded) — scoped to just its
+    `indicatorVisible` property; the other 4 documented properties (`slots`/`tintColor`/
+    `blinkIntervalMs`/`indicatorOffset`) are still unimplemented, added by whichever feature needs
+    them next. `burn-in-protection` (next in build order) will extend the `ProximityMonitor`
+    callback in `FakeSleepSessionController.kt` with its own `onProximityCoveredChanged()` call, per
+    that plan's own §4 — already anticipated, not a gap.
   - [`PLAN-2-battery.md`](other/auto-stop-conditions/PLAN-2-battery.md) — Done (implemented,
-    reviewed; PR pending). See `docs/QA.md` #18 for a minor non-blocking follow-up found during
+    reviewed, merged PR #9). See `docs/QA.md` #18 for a minor non-blocking follow-up found during
     review.
   - [`PLAN-3-quiet-hours.md`](other/auto-stop-conditions/PLAN-3-quiet-hours.md)
 - [`dnd-handling`](other/dnd-handling/PLAN.md) — Done (implemented, reviewed, merged PR #8). See

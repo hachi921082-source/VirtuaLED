@@ -14,4 +14,8 @@ package com.virtualed.app.overlay
 object FakeSleepActivityHolder {
     var current: FakeSleepActivity? = null
     var sessionController: FakeSleepSessionController? = null // Service 起動時に1回だけ設定される
+    // FakeSleepActivity 生成時に current と共に1回だけ設定される (docs/DECISIONS.md §20、
+    // docs/plans/mvp/fake-sleep-overlay/PLAN.md §7)。other/ 階層の視覚拡張機能はここ経由で
+    // 描画状態へ書き込む。
+    var indicatorUiState: FakeSleepIndicatorUiState? = null
 }
