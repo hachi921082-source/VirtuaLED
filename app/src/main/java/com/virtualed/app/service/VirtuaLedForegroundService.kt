@@ -3,6 +3,7 @@ package com.virtualed.app.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,9 +12,11 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.virtualed.app.R
+import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.overlay.FakeSleepSessionController
+import com.virtualed.app.receiver.OnOffActionReceiver
 import com.virtualed.app.receiver.ScreenStateReceiver
 
 /**
@@ -47,6 +50,16 @@ class VirtuaLedForegroundService : Service() {
         super.onCreate()
         createNotificationChannel()
         sessionController = FakeSleepSessionController(this, PendingNotificationsRepository)
+
+        // docs/plans/mvp/onoff-notification-toggle/PLAN.md §2 — 通知アクション/アプリ内スイッチの
+        // どちらからの変更でも、通知の再描画とセッションの即終了を一箇所で処理する。
+        FeatureEnabledState.setOnChangedListener { enabled ->
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.notify(NOTIFICATION_ID, buildNotification(enabled))
+            if (!enabled && sessionController.sessionActive) {
+                sessionController.endSession() // pause: 稼働中のセッションを即終了する
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -56,7 +69,9 @@ class VirtuaLedForegroundService : Service() {
             return START_NOT_STICKY
         }
 
-        val notification = buildNotification(enabled = true) // onoff-notification-toggle で拡張
+        // ACTION_START はアプリ内スイッチ ON 経路専用 — 呼び出し前に MainActivity 側が
+        // FeatureEnabledState.setEnabled(true) 済みのため、初回描画は常に enabled=true でよい。
+        val notification = buildNotification(enabled = true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -83,10 +98,9 @@ class VirtuaLedForegroundService : Service() {
     /**
      * docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md §6。セッション中に届く2回目の
      * ACTION_SCREEN_OFF は電源ボタン再押下(=フルディスミス)を意味する。通常の画面オフ検出は
-     * sessionController.onScreenOff() に委譲する — pendingRepo.isEmpty() のゲーティング判定を
-     * ここで重複実装しない (将来の onoff-notification-toggle がこの共有メソッドへ
-     * FeatureEnabledState ガードを追加する予定のため、重複させると OFF 中でもセッションが
-     * 開始してしまう)。
+     * sessionController.onScreenOff() に委譲する — pendingRepo.isEmpty() / FeatureEnabledState.isEnabled()
+     * のゲーティング判定はそちらに一元化されているため、ここで重複実装しない
+     * (docs/plans/mvp/onoff-notification-toggle/PLAN.md §2)。
      */
     private fun handleScreenOff() {
         if (sessionController.sessionActive) {
@@ -121,13 +135,19 @@ class VirtuaLedForegroundService : Service() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
+    // docs/plans/mvp/onoff-notification-toggle/PLAN.md §3 — ON/OFF トグルアクション付き本体。
+    // foreground-service-setup PLAN §3 のアクションなし版を置き換える。
     private fun buildNotification(enabled: Boolean): Notification {
-        // MVP 最小構成: タイトル + 簡易ステータスのみ、アクションボタンなし。
-        // onoff-notification-toggle PLAN で ON/OFF アクション付きの本体に置き換えられる。
+        val actionLabel = getString(if (enabled) R.string.fgs_action_turn_off else R.string.fgs_action_turn_on)
+        val toggleIntent = Intent(this, OnOffActionReceiver::class.java).setAction(OnOffActionReceiver.ACTION_TOGGLE)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, 0, toggleIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notify_dot) // 暫定 small-icon アセット
             .setContentTitle(getString(R.string.fgs_notification_title))
             .setContentText(getString(if (enabled) R.string.fgs_status_on else R.string.fgs_status_off))
+            .addAction(0, actionLabel, pendingIntent)
             .setOngoing(true)
             .setSilent(true)
             .build()
