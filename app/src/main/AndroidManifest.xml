@@ -71,6 +71,14 @@
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.VirtuaLed.FakeSleep" />
+
+        <!--
+          docs/plans/mvp/onoff-notification-toggle/PLAN.md §4。FGS 通知の ON/OFF アクションボタンの
+          PendingIntent 送信先。アプリ内からのみ発行する PendingIntent 経由で呼ばれるため exported=false。
+        -->
+        <receiver
+            android:name=".receiver.OnOffActionReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>
