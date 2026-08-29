@@ -134,3 +134,25 @@ calls `applyImportance()` on each repository change, not just at session start.
 - Does not apply during the peek-preview text state
   (`docs/plans/mvp/dismiss-and-peek-interaction/`) — blink/size only affects the Indicator Shown
   rendering.
+
+## Implementation Deviation Notes
+
+- `IndicatorSlotUiState` (`FakeSleepIndicatorUiState.kt`) omits `category` entirely — that field
+  belongs to the not-yet-implemented `docs/plans/other/category-icons-and-assets/`, which will add it
+  with a default value (non-breaking) when it lands. Only `count: Int = 1` and
+  `highImportance: Boolean = false` are defined here.
+- `PendingNotificationsRepository` gained a new `setOnChangedListener`, fired unconditionally from
+  `put()`/`remove()`/`replaceAll()` in addition to (not instead of) the existing
+  `onBecameEmpty`/`onBecameNonEmpty` callbacks — not sketched in this PLAN.md, needed so
+  `FakeSleepSessionController` re-evaluates importance on every pending-notification change, not
+  just empty↔non-empty transitions.
+- App picker (`KeywordSettingsScreen.kt`) implemented via `PackageManager.queryIntentActivities`
+  against `Intent.ACTION_MAIN`/`CATEGORY_LAUNCHER` (the "or any installed app" fallback from §3) —
+  this codebase has no notification-history store, so the primary "apps with a notification seen"
+  option from §3 is not implemented.
+- Blink implemented as a hard on/off toggle via a
+  `LaunchedEffect(blinkIntervalMs) { while (isActive) { ... delay ... } }` loop in
+  `FakeSleepActivity`'s `IndicatorGroup`, not `Animatable`/alpha interpolation.
+- `KeywordSettingsScreen` reachable from `MainSwitchScreen` via a plain
+  `showKeywordSettings`-boolean swap in `VirtuaLedApp()` (`MainActivity.kt`), matching the existing
+  `OnboardingScreen`↔`MainSwitchScreen` pattern — no navigation library.
