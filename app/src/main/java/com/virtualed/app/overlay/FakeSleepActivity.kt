@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -25,10 +26,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
+import com.virtualed.app.R
+import com.virtualed.app.category.IndicatorCategory
 import com.virtualed.app.data.IndicatorColorSettings
 import com.virtualed.app.data.PendingNotificationsRepository
 import kotlin.math.roundToInt
@@ -124,7 +129,7 @@ class FakeSleepActivity : ComponentActivity() {
         // indicatorUiState 登録直後の初回評価 — startSession() 時点では indicatorUiState が
         // まだ存在しないため no-op に終わっている (docs/plans/other/importance-based-sizing/
         // PLAN.md §6、burn-in-protection PLAN.md §4 と同様の乖離)。
-        sessionController.recomputeImportanceNow()
+        sessionController.recomputeIndicatorStateNow()
     }
 
     /** ドットからプレビューテキストへ、コンテンツ view を切り替える (同一 Activity インスタンス内)。 */
@@ -209,11 +214,14 @@ private fun FakeSleepContent(
  * インジケータースロットグループの位置決めコンテナ。画面左上を基準とする絶対座標系で、
  * offsetState (BurnInProtector が書き換える) の値だけドットをずらして描画する
  * (docs/plans/other/burn-in-protection/PLAN.md §3)。複数スロットのグリッドレイアウトは対象外
- * (docs/plans/other/multi-notification-stacking/) — MVP と同じ単一ドットを
+ * (docs/plans/other/multi-notification-stacking/) — MVP と同じ単一スロットを
  * オフセット付きで描画するのみ。色は tintColorState (ユーザー設定の永続化色、
  * デフォルト白) から取る (docs/plans/other/indicator-color-customization/PLAN.md §5)。
  * 高重要度スロットは 1.5x スケールで描画し、blinkIntervalMsState が非 null の間は
  * その間隔でオン/オフを繰り返す (docs/plans/other/importance-based-sizing/PLAN.md §6)。
+ * slot.category が非 null ならカテゴリアイコンを、null なら従来どおりプレーンな円 (ドット) を
+ * 描画する — 円描画は未割り当てが実装される前の MVP 既定表示であり、フォールバックとして残す
+ * (docs/plans/other/category-icons-and-assets/PLAN.md §5)。
  */
 @Composable
 private fun IndicatorGroup(
@@ -243,14 +251,41 @@ private fun IndicatorGroup(
     }
 
     val dotSizeDp = if (slot.highImportance) INDICATOR_DOT_SIZE_DP * 1.5f else INDICATOR_DOT_SIZE_DP.toFloat()
+    val category = slot.category
     Box(modifier = Modifier.fillMaxSize()) {
         if (blinkVisible) {
-            Box(
-                modifier = Modifier
-                    .offset { offsetState.value }
-                    .size(dotSizeDp.dp)
-                    .background(tintColorState.value, CircleShape),
-            )
+            if (category != null) {
+                // Image + ColorFilter.tint() は View 側の ImageView.setColorFilter() の
+                // Compose 版相当 (PLAN.md §2/§6 が指定する着色経路)。androidx.compose.material3.Icon
+                // は tint 引数しか持たず内部変換が暗黙的なため、ここでは明示的に Image + colorFilter
+                // を使う。
+                Image(
+                    painter = painterResource(category.drawableRes()),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(tintColorState.value),
+                    modifier = Modifier
+                        .offset { offsetState.value }
+                        .size(dotSizeDp.dp),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .offset { offsetState.value }
+                        .size(dotSizeDp.dp)
+                        .background(tintColorState.value, CircleShape),
+                )
+            }
         }
     }
+}
+
+// slot.category からドローアブルリソースへのコンパイル時解決 (docs/plans/other/
+// category-icons-and-assets/PLAN.md §6) — IndicatorCategory.assetName の文字列は
+// アセット命名の文書化用途のみで、ここでは使わない (ランタイム文字列解決はしない)。
+private fun IndicatorCategory.drawableRes(): Int = when (this) {
+    IndicatorCategory.PHONE -> R.drawable.ic_notify_phone
+    IndicatorCategory.MAIL -> R.drawable.ic_notify_mail
+    IndicatorCategory.SNS -> R.drawable.ic_notify_sns
+    IndicatorCategory.CALENDAR -> R.drawable.ic_notify_calendar
+    IndicatorCategory.OTHER -> R.drawable.ic_notify_other
 }
