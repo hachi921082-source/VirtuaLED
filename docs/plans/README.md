@@ -89,7 +89,8 @@ the `other/` tier in this order:
   - [`PLAN-1-proximity.md`](other/auto-stop-conditions/PLAN-1-proximity.md)
   - [`PLAN-2-battery.md`](other/auto-stop-conditions/PLAN-2-battery.md)
   - [`PLAN-3-quiet-hours.md`](other/auto-stop-conditions/PLAN-3-quiet-hours.md)
-- [`dnd-handling`](other/dnd-handling/PLAN.md)
+- [`dnd-handling`](other/dnd-handling/PLAN.md) — Done (implemented, reviewed; PR pending). See
+  `docs/QA.md` #17 for a minor non-blocking follow-up found during review.
 - [`multi-notification-stacking`](other/multi-notification-stacking/PLAN.md)
 - [`localization-additional-languages`](other/localization-additional-languages/PLAN.md)
 - [`phone-call-overlay-suppression`](other/phone-call-overlay-suppression/PLAN.md)
