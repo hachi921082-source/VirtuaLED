@@ -35,4 +35,17 @@
     <string name="settings_indicator_color_label">インジケーターの色</string>
     <string name="settings_indicator_color_hex_label">HEX (例: #FF0000)</string>
     <string name="settings_indicator_color_hex_error">無効なHEXコードです</string>
+
+    <!-- docs/plans/other/importance-based-sizing/PLAN.md §5 -->
+    <string name="settings_blink_interval_label">高重要度時の点滅間隔: %1$dms</string>
+    <!-- docs/plans/other/importance-based-sizing/PLAN.md §3 -->
+    <string name="settings_keyword_settings_button">キーワード設定</string>
+    <string name="keyword_settings_title">キーワード設定</string>
+    <string name="keyword_settings_back_button">戻る</string>
+    <string name="keyword_settings_pick_app_label">アプリを選択</string>
+    <string name="keyword_settings_no_app_selected">アプリを選択してください</string>
+    <string name="keyword_settings_add_keyword_hint">キーワードを入力</string>
+    <string name="keyword_settings_add_button">追加</string>
+    <string name="keyword_settings_remove_button">削除</string>
+    <string name="keyword_settings_empty_keywords">登録済みのキーワードはありません</string>
 </resources>
