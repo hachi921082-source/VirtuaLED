@@ -82,28 +82,39 @@ mapping decision.
 
 ## 5. Render-Time Integration
 
-Extends `OverlayIndicatorView` (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §5) with an icon-mode
-render path, replacing the plain dot:
+Sets a slot's `category` field on `FakeSleepIndicatorUiState.slots`
+(`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7), replacing the plain dot (`category = null`) with
+a resolved `IndicatorCategory`:
 
 ```kotlin
-fun showCategoryIcon(category: IndicatorCategory) {
-    imageView.setImageResource(resolveDrawableRes(category.assetName))
-    // tint applied by docs/plans/other/indicator-color-customization/, not this plan
+fun applyCategory(uiState: FakeSleepIndicatorUiState, category: IndicatorCategory) {
+    // Before docs/plans/other/multi-notification-stacking/ exists there is exactly one slot (the
+    // MVP default), so this sets that slot's category directly:
+    val slots = uiState.slots.value
+    uiState.slots.value = slots.mapIndexed { index, slot ->
+        if (index == 0) slot.copy(category = category) else slot
+    }
+    // tint applied by docs/plans/other/indicator-color-customization/, not this plan; the actual
+    // icon/dot lookup from `category` happens in FakeSleepActivity's SlotIcon composable
+    // (docs/plans/mvp/fake-sleep-overlay/PLAN.md §7), not here
 }
 ```
 
 Which single notification's category is shown (when multiple are pending) follows the same
 single-indicator simplification MVP already uses — resolving to one category and rendering one
 icon is a placement/collision question owned by
-`docs/plans/other/multi-notification-stacking/PLAN.md`, not this plan.
+`docs/plans/other/multi-notification-stacking/PLAN.md`, not this plan. Once that plan lands, it
+constructs the whole `slots` list itself (each slot's `category` already resolved via
+`CategoryMapper`), superseding this single-slot `applyCategory()` helper.
 
 ## 6. Cross-Feature Touchpoints
 
-- Extends `docs/plans/mvp/fake-sleep-overlay/`'s `OverlayIndicatorView` — does not define a new
-  overlay view.
-- Icon tint color comes from `docs/plans/other/indicator-color-customization/` once built; until
-  then, icons render at their native white (`#FFFFFF`) source color, same as the MVP dot default.
+- Writes `docs/plans/mvp/fake-sleep-overlay/`'s `FakeSleepIndicatorUiState.slots[].category` (§7)
+  — does not define a new overlay view.
+- Icon tint color comes from `docs/plans/other/indicator-color-customization/`'s shared `tintColor`
+  state once built; until then, `FakeSleepIndicatorUiState.tintColor`'s default (white) applies,
+  same as the MVP dot default.
 - `docs/plans/other/multi-notification-stacking/` decides how to place/collapse multiple
-  simultaneous category icons; this plan only defines the assets and single-icon render path.
+  simultaneous category icons; this plan only defines the assets and single-slot render path.
 - `PendingNotificationInfo.packageName` (`docs/plans/mvp/notification-detection-dot-indicator/`)
   is the `CategoryMapper.resolve()` input.
