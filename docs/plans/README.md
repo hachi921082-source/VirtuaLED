@@ -24,7 +24,7 @@ dependency-ordered file — each feature directory is self-contained and indepen
 | 2 | [`foreground-service-setup`](mvp/foreground-service-setup/PLAN.md) | Done (merged, PR #2) |
 | 3 | [`permission-onboarding`](mvp/permission-onboarding/PLAN.md) | Done (merged, PR #3) |
 | 4 | [`fake-sleep-overlay`](mvp/fake-sleep-overlay/PLAN.md) | Done (merged, PR #4) |
-| 5 | [`dismiss-and-peek-interaction`](mvp/dismiss-and-peek-interaction/PLAN.md) | Not started |
+| 5 | [`dismiss-and-peek-interaction`](mvp/dismiss-and-peek-interaction/PLAN.md) | Done (merged, PR #5) |
 | 6 | [`onoff-notification-toggle`](mvp/onoff-notification-toggle/PLAN.md) | Not started |
 | 7 | **MVP Integration Test** (see below) | Not started |
 
