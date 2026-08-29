@@ -8,8 +8,10 @@
 2. Current State of the Specs
 3. MVP Implementation Plans — Ready to Build
 4. MVP Build Order Correction (Follow-Up Session)
-5. Still Open
-6. Recommended Next Step
+5. Repo Setup and Feature 1 Progress (Follow-Up Session)
+6. Feature 2 Progress (Follow-Up Session)
+7. Still Open
+8. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -128,10 +130,76 @@ graph and rationale in `docs/DECISIONS.md` §19):
 and in the earlier `docs/plans/README.md` version. No content within the 6 PLAN.md files themselves
 changed; this was a sequencing-only correction.
 
-## 5. Still Open
+## 5. Repo Setup and Feature 1 Progress (Follow-Up Session)
+
+The package name placeholder (`com.virtualed.app`) was deliberately left unresolved rather than
+blocking on it — per `docs/DECISIONS.md` §1a, renaming is cheap before public release, and this
+project is still personal-use/sideload only, so there's no urgency.
+
+**Project scaffold and repo**: `git init` run in the project root; `developer-lite` scaffolded a
+minimal buildable Android Studio project (Gradle 8.9, AGP 8.6.0, Kotlin 2.0.20, Jetpack Compose,
+package `com.virtualed.app`, minSdk 31, compileSdk/targetSdk 35) — no MVP feature code, just the
+empty-app skeleton plus a `Theme.VirtuaLed.FakeSleep` style pre-declared for `fake-sleep-overlay`'s
+later use. A private GitHub repo was created (`hachi921082-source/VirtuaLED`) and the scaffold
+pushed as the initial commit on `master`.
+
+**Established conventions for feature implementation** (apply to all remaining MVP/other
+features going forward): branch name `feature/mvp-<feature-name>` (or `feature/<feature-name>` for
+`other/` tier features); implement via `developer-lite`, review via `reviewer-lite`
+(`~/.claude/shared/dev-workflow.md` §7); merge via GitHub PR (`gh pr create` / `gh pr merge`), not
+direct `git merge`.
+
+**Feature 1 (`notification-detection-dot-indicator`) shipped**: implemented by `developer-lite`,
+reviewed and approved by `reviewer-lite` (cross-checked against its PLAN.md, build verified), and
+merged via PR #1. Along the way, `reviewer-lite` found and fixed a real doc bug (not a code bug):
+`docs/detailed-spec.md` §2 and `docs/plans/mvp/foreground-service-setup/PLAN.md` §1 both listed
+`BIND_NOTIFICATION_LISTENER_SERVICE` as a `<uses-permission>` entry, which is wrong — it's a
+system-bound permission declared via `android:permission` on the `<service>` element itself. Both
+docs were corrected; the implementation itself already had it right. `docs/plans/README.md`'s
+status column now shows this feature as done.
+
+Also added this session: a project-level `CLAUDE.md` rule ("Confirm Scope Before Acting") after an
+incident where an ambiguous "proceed" was over-interpreted as authorization to scaffold the entire
+project unprompted — a corresponding persistent-memory entry
+(`feedback_confirm_scope_before_acting`) was also recorded. Bias going forward: confirm before each
+new non-trivial action rather than chaining through a to-do list from one ambiguous reply.
+
+## 6. Feature 2 Progress (Follow-Up Session)
+
+Implemented MVP feature 2, `foreground-service-setup`, following the recommended next step from
+the previous handoff and the same branch/implement/review/PR flow established for feature 1 (§5):
+branch `feature/mvp-foreground-service-setup`, implemented by `developer-lite` (manifest
+permissions + `<service>` declaration per PLAN §1, `VirtuaLedForegroundService` skeleton per PLAN
+§2/§3, temporary in-app switch in `MainActivity` wired to `ACTION_START`/`ACTION_STOP` per PLAN
+§4 — `permission-onboarding`, which normally gates this switch, hasn't landed yet so a stand-in
+switch was added), reviewed by `reviewer-lite` (conditionally approved: code and build clean, no
+defects against the plan, but live device behavior couldn't be verified in that sandboxed
+environment — no adb devices/emulator available there).
+
+**Real-device smoke test** (done directly in the main session, not by an agent, since the agent
+sandbox had no device access): connected a physical Android device (model `M06` — not one of the
+two officially supported test devices from `docs/DECISIONS.md` §11, used only as a smoke-test
+stand-in here, not a validation of officially supported hardware) via `adb`. Confirmed via
+`dumpsys activity services`: switch ON → `VirtuaLedForegroundService` running with
+`isForeground=true` and the correct notification channel/flags; switch OFF → the service record
+disappears, confirming a full stop. One expected/documented gap surfaced: the notification itself
+isn't visually posted (`dumpsys notification` showed `importance=NONE`, `numBlocked=1`) because
+`POST_NOTIFICATIONS` runtime permission hasn't been requested yet — that's explicitly
+`permission-onboarding`'s scope (the next feature in build order), not a defect here.
+
+Merged via PR #2 (`gh pr merge --merge --delete-branch`). `docs/plans/README.md`'s status column
+now shows this feature as done.
+
+**New workflow preference recorded this session**: when a `gh pr merge` (or similar) is blocked by
+the Claude Code auto-mode permission classifier, present the user a choice via `AskUserQuestion`
+(retry / merge manually / hold) rather than just describing the block in text and waiting. Recorded
+globally in `~/.claude/CLAUDE.md` under "Blocked Git/GitHub Actions" (applies to all projects, not
+just this one), so no project-scoped memory entry was kept for it.
+
+## 7. Still Open
 
 - **Package name placeholder**: `com.virtualed.app` is used throughout `docs/spec.md` and all
-  `PLAN.md` files, still unconfirmed by the user (carried over from before this session).
+  `PLAN.md` files, still unconfirmed by the user — explicitly deferred (§5 above), not a blocker.
 - **Old `NO-LED` folder cleanup**: `c:\Users\m9112\vscode2\NO-LED` — status not re-checked this
   session; carried over from before.
 - **App icon**: interim Material Symbols plan stands, final art deferred (carried over).
@@ -146,15 +214,21 @@ changed; this was a sequencing-only correction.
 - Secure-keyguard mechanism (`docs/DECISIONS.md` §18) was validated only on arrows We2 Plus, not
   yet re-confirmed on the Sharp AQUOS sense9 — worth doing opportunistically, not a blocker.
 
-## 6. Recommended Next Step
+## 8. Recommended Next Step
 
-1. Resolve the package name placeholder (or explicitly decide to keep `com.virtualed.app`).
-2. Scaffold the actual Android Studio project (nothing exists in `src/` yet).
-3. Have `developer-lite` implement the 6 MVP `PLAN.md` files in the corrected build order (§4
-   above), with `reviewer-lite` checking each one as it lands (per
-   `~/.claude/shared/dev-workflow.md` §7).
-4. Run the MVP Integration Test checklist (`docs/plans/README.md`) on a real device with a
-   **secure** lock configured.
-5. Once that passes: **tell the user** (don't silently proceed), then start the `other/` tier —
+1. Implement MVP feature 3, `permission-onboarding`, following the same
+   branch/implement/review/PR flow established in §5/§6 (branch
+   `feature/mvp-permission-onboarding`). This is also the feature that should replace
+   `foreground-service-setup`'s temporary `MainActivity` switch with the real permission-gated
+   onboarding flow (§6).
+2. Continue through the remaining corrected build order (§4): `fake-sleep-overlay`,
+   `dismiss-and-peek-interaction`, `onoff-notification-toggle`.
+3. Run the MVP Integration Test checklist (`docs/plans/README.md`) on a real device with a
+   **secure** lock configured, once all 6 land — use one of the two officially supported test
+   devices (Sharp AQUOS sense9 or FCNT arrows We2 Plus, `docs/DECISIONS.md` §11) for this, not an
+   arbitrary device like the `M06` used for feature 2's quick smoke test (§6).
+4. Once that passes: **tell the user** (don't silently proceed), then start the `other/` tier —
    `reviewer-lite` cross-consistency pass on those `PLAN.md` files first (they reference MVP
    internals that may have shifted during implementation), then implement in any order.
+5. Resolve the package name placeholder before any public release is pursued (not urgent now,
+   §5/§6).
