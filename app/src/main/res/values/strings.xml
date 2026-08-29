@@ -8,6 +8,10 @@
     <string name="fgs_status_on">有効</string>
     <string name="fgs_status_off">無効</string>
 
+    <!-- docs/plans/mvp/fake-sleep-overlay/PLAN.md §5 -->
+    <string name="fake_sleep_channel_name">VirtuaLED フェイクスリープ</string>
+    <string name="fake_sleep_notification_title">VirtuaLED</string>
+
     <!-- docs/plans/mvp/permission-onboarding/PLAN.md §3 -->
     <string name="onboarding_intro">VirtuaLED を使うには、次の権限を許可してください</string>
     <string name="onboarding_listener_title">通知へのアクセス</string>
