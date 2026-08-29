@@ -18,8 +18,12 @@
 12. `other/`-Tier Architecture Fix and Implementation Order (Follow-Up Session)
 13. `other/`-Tier Implementation Begins: dnd-handling, auto-stop-battery, auto-stop-proximity
     (Follow-Up Session)
-14. Still Open
-15. Recommended Next Step
+14. Four More `other/`-Tier Features Merged: burn-in-protection, indicator-color-customization,
+    importance-based-sizing, auto-stop-conditions/quiet-hours (Follow-Up Session)
+15. category-icons-and-assets: Implementation, Review, and an Extensive Live-Device Bug Hunt
+    (Follow-Up Session, PR #15 Open, Not Yet Merged)
+16. Still Open
+17. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -640,85 +644,276 @@ merged PR numbers once each successive PR landed. `docs/HANDOFF.md` (this file) 
 user's request ("引き継いで" — hand off) rather than mid-session, so all three features' progress is
 recorded together in this one section instead of three separate ones.
 
-## 14. Still Open
+## 14. Four More `other/`-Tier Features Merged: burn-in-protection, indicator-color-customization, importance-based-sizing, auto-stop-conditions/quiet-hours (Follow-Up Session)
 
-- **`other/`-tier build order** (§12, unchanged except the first 3 of 10 are now done): the
-  remaining recommended order is `burn-in-protection` → `indicator-color-customization` →
-  `importance-based-sizing` → `auto-stop-conditions`/quiet-hours → `category-icons-and-assets` →
-  `multi-notification-stacking` → `localization-additional-languages`. Not a hard requirement
-  (`docs/plans/README.md` still says "no strict sequencing"), but following it avoids rework at two
-  specific coupling points: proximity/burn-in-protection's shared callback-wiring point (now
-  especially relevant since proximity, §13, is already merged and its exact callback site
-  documented), and multi-notification-stacking being more meaningful to build/test once
-  category-icons-and-assets and importance-based-sizing already exist.
-- **`docs/QA.md` #17** (new, §13) — a narrow, non-blocking DND-cache-refresh race on service start;
-  see §13 above for detail. Not a blocker.
-- **`docs/QA.md` #18** (new, §13) — the battery-threshold slider doesn't live-refresh while the
-  service is already running; see §13 above for detail. Not a blocker, but unresolved design
-  question (accept as-is, or add a live-refresh path mirroring `DndSettings`'s pattern).
-- **`FakeSleepIndicatorUiState`'s remaining 4 properties** (new, §13) — `slots`, `tintColor`,
-  `blinkIntervalMs`, `indicatorOffset` are still unimplemented; each gets added by the `other/`-tier
-  feature that first needs it (`burn-in-protection` needs `indicatorOffset` next). Not a blocker,
-  just tracking that the class is deliberately partial right now, not a completed surface.
-- **Package name placeholder**: `com.virtualed.app` is used throughout `docs/spec.md` and all
-  `PLAN.md` files, still unconfirmed by the user — explicitly deferred (§5 above), not a blocker.
-- **Old `NO-LED` folder cleanup**: `c:\Users\<user>\vscode2\NO-LED` — status not re-checked this
-  session; carried over from before.
+This session opened by reading the previous handoff, then implemented the next four features in
+§12's recommended order, one at a time, each via the same branch/implement
+(`developer-lite`)/review (`reviewer-lite`)/PR flow established since §5. All four are merged.
+
+**`burn-in-protection`** (branch `feature/burn-in-protection`, PR #11, merged): adds `BurnInProtector`
+(a fixed 4000ms instant-jump reposition `Handler` loop) and `FakeSleepIndicatorUiState.indicatorOffset`
+— the first feature to actually code `indicatorOffset` (previously only sketched in docs). Gated on
+session-active/`OverlayUiState`/proximity-covered via a single combined `recompute()`
+(`docs/DECISIONS.md` §20's already-designed combined-gate shape). `reviewer-lite` approved; two
+non-blocking notes: `FakeSleepSessionController.startSession()`'s `onSessionActiveChanged(true)` call
+is dead in every path (the Activity/`BurnInProtector` don't exist yet at that point — real activation
+happens in `FakeSleepActivity.onCreate()`, documented as a deviation in that plan's PLAN.md), and the
+indicator sits at `(0,0)` for the first ~4s of each session before the first jump (matches the plan's
+own pseudocode, not a defect).
+
+**`indicator-color-customization`** (branch `feature/indicator-color-customization`, PR #12, merged):
+`IndicatorColorSettings` (DataStore, default white) + an inline palette-swatch/HEX picker in
+`MainSwitchScreen` (no separate settings screen — matches this app's no-navigation-library convention),
+writing `FakeSleepIndicatorUiState.tintColor` (also newly coded here). Live color changes propagate to
+an active session via `FakeSleepActivityHolder.indicatorUiState?.tintColor`, independent of
+persistence. `reviewer-lite` approved with no blocking issues; confirmed the theoretical
+async-load-vs-live-update race (session-start color load vs. a settings-screen edit) is practically
+unreachable, since a new `FakeSleepActivity` is only created screen-off (untouchable), while the
+settings screen requires screen-on/foregrounded.
+
+**`importance-based-sizing`** (branch `feature/importance-based-sizing`, PR #13, merged) — the largest
+`other/`-tier feature so far (12 commits): `KeywordRegistry`/`BlinkSettings` (DataStore, synchronous
+caches mirroring `DndSettings`'s pattern), `ImportanceResolver` (NFKC/case-normalized substring match),
+and a new `KeywordSettingsScreen` (installed-app picker + per-app keyword add/remove, reached via a
+boolean-gated screen swap — the first `other/`-tier screen beyond the simple inline settings). First
+feature to code `FakeSleepIndicatorUiState.slots`/`blinkIntervalMs` (scoped to `count`/`highImportance`
+only; `category` deliberately deferred to `category-icons-and-assets`, per the same
+scope-to-only-what's-needed precedent `burn-in-protection`/proximity already established). `reviewer-lite`
+found one real (low-severity) defect — `KeywordRegistry.setKeywords()` deduplicated the DataStore write
+but not the in-memory cache, so double-adding the same keyword could drift the two representations
+apart — **fixed before merge** (dedup both sides).
+
+**`auto-stop-conditions`/quiet-hours** (branch `feature/auto-stop-quiet-hours`, PR #14, merged) — the
+most OS-mechanism-heavy `other/`-tier feature (self-re-arming inexact `AlarmManager` alarms + the only
+`RECEIVE_BOOT_COMPLETED` consumer in this app). First `reviewer-lite` pass: conditionally approved,
+flagged one real finding (a `goAsync()` coroutine body not guaranteeing `pendingResult.finish()` on a
+thrown exception) — **fixed** (`try/finally` wrap). The main session then did live on-device testing
+(arrows We2 Plus / `M06`, driven directly via `adb`, not by an agent — no device was reachable in
+either agent's sandbox this round) and **found a real defect**: `QuietHoursState` only updated via the
+edge-triggered alarm receiver, so a cold-started FGS (reboot, force-stop+relaunch, or first enable)
+already inside a configured quiet-hours window wouldn't suppress the overlay until the *next day's*
+trigger — confirmed directly (screen-off inside the window still launched the overlay). **Fixed and
+re-tested live**: `QuietHoursScheduler.reschedule()` now also computes whether `now` is inside
+`[start, end)` (handling midnight-spanning windows via a new `isWithinWindow()`) and syncs
+`QuietHoursState` immediately on every call; re-tested on the same device/scenario, confirmed fixed
+(two consecutive real screen-off events after a mid-window FGS restart both correctly stayed
+suppressed). Final `reviewer-lite` pass on that fix: approved. `docs/QA.md` #19 logged the one
+remaining live-untested path (alarm-fires-while-session-visibly-active → force-end), verified by code
+review only (mirrors the already-proven DND `endSession()` reach-in pattern) since the test device's
+aggressive re-lock behavior interrupted the timed setup needed for a full real-time test.
+
+**Docs updated along the way**: `docs/plans/README.md`'s status column updated after each merge (PR
+numbers #11-#14); `docs/QA.md` #19 added. This session established (via the quiet-hours live-testing
+episode) that **this project's main session, not just agents, can and did drive real on-device testing
+directly via `adb`** when a physical device is connected and unlocked by the user — including
+installing freshly-built APKs, granting permissions, posting test notifications, screenshotting,
+`uiautomator dump`-based UI-hierarchy inspection for precise tap coordinates, and `dumpsys`
+(`activity`, `alarm`, `notification`, `power`, `window`) for state verification. This device (`M06`)
+has two recurring characteristics worth knowing for future sessions: a very short
+screen-off-to-relock timer (secure PIN re-engages within roughly a minute of screen-off, sometimes
+faster), and the already-documented `docs/QA.md` #16 doze quirk — both make fully-scripted,
+unattended multi-step UI automation unreliable; the working pattern that emerged is: batch as much
+adb-only (non-visual) verification as possible, ask the user to unlock only immediately before a
+UI-interaction step, and prefer techniques that don't need the screen to stay unlocked for a
+multi-minute wait (e.g. verifying `AlarmManager` scheduling via `dumpsys alarm` rather than physically
+waiting for a real-time alarm to fire).
+
+## 15. category-icons-and-assets: Implementation, Review, and an Extensive Live-Device Bug Hunt (Follow-Up Session, PR #15 Open, Not Yet Merged)
+
+Continuing directly from §14 in the same session. `category-icons-and-assets` was next in the
+recommended order, but its PLAN.md's app-to-category mapping mechanism was an explicit open question
+(`docs/QA.md` #13) blocking real product value. **Resolved this session, asked directly of the user**
+(a product decision, not delegated): user-assigned per app via a settings screen, not auto-inferred —
+same underlying rationale as §3's importance-detection decision (a hardcoded table only covers apps
+someone thought to add ahead of time; a user-assigned screen correctly covers whatever apps a given
+user actually has). Recorded as `docs/DECISIONS.md` §21; `docs/QA.md` #13 marked resolved;
+`category-icons-and-assets/PLAN.md` updated to drop the open-question framing.
+
+**Implementation** (branch `feature/category-icons-and-assets`, `developer-lite`, 14 commits): adds
+`IndicatorCategory` (PHONE/MAIL/SNS/CALENDAR/OTHER), `CategoryMapper`/`DefaultCategoryMapper`,
+`CategorySettings` (DataStore, per-app, synchronous cache mirroring `KeywordRegistry`'s pattern), 5
+solid-white vector icon assets (classic Material Icons, Apache 2.0, attributed per-file — a shared
+`res/drawable/THIRD_PARTY_LICENSES.md` wasn't possible since Android resource-directory filename
+rules reject non-resource filenames there), and a new `CategorySettingsScreen`. `FakeSleepActivity`'s
+render code swaps the plain dot for a tinted category icon when a slot has one resolved (falls back
+to the dot when unassigned). Category for the single MVP slot resolves from the most-recently-posted
+pending notification's app; recompute wiring merged into the existing `recomputeIndicatorState()`/
+`recomputeIndicatorStateNow()` pass (renamed from `recomputeImportance*`) alongside the
+already-shipped importance/blink logic — a shared `InstalledAppPicker.kt` helper was factored out of
+`KeywordSettingsScreen` so both settings screens use one app-picker implementation, not two. First
+`reviewer-lite` pass: **approved**, no blocking issues (cache correctness, the shared-helper
+extraction, the recompute rename/merge, and the render branch — including confirming the icon lookup
+is a compile-time `when` expression, not a runtime string lookup — were all verified by direct code
+reading; build verified independently).
+
+**Then an extensive live on-device testing round with the user** (same `M06` device, driven directly
+via `adb` by the main session, with the user unlocking/interacting on the physical device at each
+step) found and fixed **8 additional real bugs**, none caught by either `reviewer-lite` pass (all are
+the kind of thing that only surfaces when a real screen, a real status bar, and real installed apps
+are involved):
+
+1. **Status bar overlap** (`CategorySettingsScreen.kt`) — the title row and back button rendered
+   underneath the status bar (clock/battery), unreadable. Root cause: `enableEdgeToEdge()`
+   (`MainActivity.onCreate()`) with no inset-aware padding anywhere in this screen. Fixed:
+   `.windowInsetsPadding(WindowInsets.safeDrawing)`.
+2. **Same status bar overlap in `KeywordSettingsScreen.kt`** — a pre-existing bug from
+   `importance-based-sizing` (§14), sharing the identical top-row layout shape; fixed the same way
+   since it was actively being exercised this round too.
+3. **Category chip row overflow** — the 5 category chips' (電話/メール/SNS/カレンダー/その他)
+   combined Japanese-label width exceeded the screen width, leaving the trailing その他
+   (OTHER/unassigned) chip completely unreachable — confirmed via a live screenshot showing only 4 of
+   5 chips with no way to reach the 5th. Fixed: `.horizontalScroll(rememberScrollState())`.
+4. **App picker missing ordinary user apps (LINE, Gmail) entirely** — root cause #1: this app's
+   `minSdk = 31` means Android 11+ package-visibility restrictions apply, and
+   `InstalledAppPicker.loadInstalledApps()`'s `queryIntentActivities(ACTION_MAIN/CATEGORY_LAUNCHER)`
+   call was silently returning only a small filtered subset of installed apps with no `<queries>`
+   declaration in the manifest. Fixed: added a `<queries><intent>` block for exactly
+   `ACTION_MAIN`/`CATEGORY_LAUNCHER` (not the broader `QUERY_ALL_PACKAGES` restricted permission,
+   respecting this project's minimal-permission philosophy, `docs/DECISIONS.md` §4). Confirmed fixed
+   (LINE/Gmail then appeared).
+5. **Main switch visually snapping back to OFF after visiting keyword/category settings and
+   returning** — root cause: `MainSwitchScreen`'s `enabled` state was `remember { mutableStateOf(false)
+   }`, hardcoded, with no sync to reality; since `VirtuaLedApp()` swaps `MainSwitchScreen` out of
+   composition when navigating to either settings screen, its remembered state resets to the hardcoded
+   default on every return trip — even though `VirtuaLedForegroundService` was still genuinely
+   running the whole time (confirmed via `dumpsys activity services`). Fixed: a new
+   `isForegroundServiceRunning(context)` helper (queries `ActivityManager.getRunningServices()`,
+   filtered to the app's own service — still valid post-API-26 per Android's documented
+   backward-compatibility behavior for checking an app's own services, confirmed correct by
+   `reviewer-lite`) seeds `enabled`'s initial value instead of a hardcoded `false`.
+
+A **second `reviewer-lite` pass** over fixes 1-5 (5 commits, `a2a39f1`..`b346253`): **approved** —
+verified each diff does what its commit message claims, confirmed fix #4's `<queries>` scope exactly
+matches the actual query (no overreach), and specifically confirmed the `getRunningServices()`
+deprecation reasoning in fix #5 is correct (the method remains reliable for an app checking its own
+services, unlike inspecting other apps' services which was restricted starting API 26).
+
+**Live confirmation the core feature actually works**: after fix #4 and a `docs/QA.md`-style
+leftover-quiet-hours-configuration false alarm (a stale quiet-hours window from §14's testing was
+still active and correctly suppressing all sessions — not a bug, just forgotten test state, resolved
+by disabling it), the user assigned MAIL to their Outlook app, sent themselves a test email, and
+confirmed via a live screenshot that the tinted mail-envelope icon rendered correctly (not a plain
+dot) — the first real end-to-end visual confirmation of this feature's core purpose.
+
+That surfaced **3 more real findings**, fixed and pushed but **not yet reviewed by `reviewer-lite`**
+(commits `84f3bb5`, `be71a7b`, `34371f6`, all after the second review pass):
+
+6. **Icon illegibility at the existing 12dp indicator size** — the user pointed out the mail icon was
+   "extremely tiny" once actually seen at real size on the device; a plain circle reads fine at 12dp,
+   but a detailed icon shape (envelope, phone handset, etc.) doesn't. Fixed: `INDICATOR_DOT_SIZE_DP`
+   raised from 12 to 24 (a single shared constant — both the plain-dot fallback and every category
+   icon use it, so this is a uniform size bump, not a per-icon change).
+7. **No discoverable way to un-assign a category** — functionally possible via the その他 chip
+   (writes `category = null`), but the user pointed out (after initially not realizing this
+   themselves) that this isn't intuitive UI. Fixed: tapping an already-selected chip now toggles it
+   back to unassigned too (standard selectable-chip UX convention), in addition to keeping その他
+   available.
+8. **`MATCH_DEFAULT_ONLY` silently excluding real launcher apps from the app picker** — after fix #4,
+   the user still couldn't find their actual phone app (Rakuten Link, `jp.co.rakuten.mobile.rcs`) in
+   the picker; investigated live via `dumpsys package jp.co.rakuten.mobile.rcs`, confirmed it has a
+   properly-declared `ACTION_MAIN`/`CATEGORY_LAUNCHER` activity, so it should have been visible. Root
+   cause: `InstalledAppPicker.loadInstalledApps()` queried with the `PackageManager.MATCH_DEFAULT_ONLY`
+   flag, which additionally requires `CATEGORY_DEFAULT` on the target's intent-filter — a flag meant
+   for implicit-intent resolution (e.g. "who can handle a generic action"), not for enumerating
+   home-screen-visible apps; many real launcher-icon apps (confirmed: Rakuten Link) declare only
+   `CATEGORY_LAUNCHER`, not `CATEGORY_DEFAULT`, and were silently excluded. Fixed: dropped the flag
+   entirely (`queryIntentActivities(launcherIntent, 0)`), matching how Android's own home-screen
+   launcher enumerates the app drawer. **Not yet confirmed by the user on-device** — this is the
+   specific item the user asked to verify in a fresh session (see §17 below).
+
+**Current state**: PR #15 (`feature/category-icons-and-assets` → `master`) is open at commit
+`34371f6`, **not merged**. `docs/plans/README.md`'s `category-icons-and-assets` row is still stale
+(says "blocked on QA #13" — needs updating once merged, not done yet since the feature isn't
+finalized). No new `docs/QA.md` entries were added this round (all 8 findings were fixed directly,
+not deferred).
+
+## 16. Still Open
+
+- **PR #15 (`category-icons-and-assets`) is open, not merged** (§15) — this is the immediate blocker
+  before anything else `other/`-tier proceeds. Specifically open: whether commit `34371f6` (dropping
+  `MATCH_DEFAULT_ONLY`) actually makes Rakuten Link (`jp.co.rakuten.mobile.rcs`) appear in the app
+  picker on-device — the user asked to verify this in a fresh session rather than continuing in this
+  one. See §17 for the exact resume steps.
+- **`docs/plans/README.md`'s `category-icons-and-assets` row is stale** (§15) — still reads "blocked
+  on QA #13," which is now resolved (`docs/DECISIONS.md` §21). Update once PR #15 actually merges,
+  not before (the row should reflect merged reality, matching every other `other/`-tier row's
+  convention).
+- **`other/`-tier build order** (§12): the remaining recommended order after `category-icons-and-assets`
+  is `multi-notification-stacking` → `localization-additional-languages`. The first 8 of 10 features
+  are now done (`dnd-handling`, `auto-stop-conditions` ×3, `burn-in-protection`,
+  `indicator-color-customization`, `importance-based-sizing`, quiet-hours) — `category-icons-and-assets`
+  is the 9th, in progress. `multi-notification-stacking` is intentionally last-but-one since it's more
+  meaningful to build/test once `category-icons-and-assets` (per-slot icons) already exists — which
+  will be true once PR #15 merges. `localization-additional-languages` is last by its own plan's
+  design (tracks whatever `strings.xml` keys exist at the time it's implemented).
+- **`docs/QA.md` #17** — a narrow, non-blocking DND-cache-refresh race on service start (§13). Not a
+  blocker.
+- **`docs/QA.md` #18** — the battery-threshold slider doesn't live-refresh while the service is
+  already running (§13). Not a blocker, unresolved design question.
+- **`docs/QA.md` #19** — quiet-hours' real-time alarm-fires-while-session-active path is verified by
+  code review only, not an actual timed on-device test (§14). Not a blocker.
+- **`FakeSleepIndicatorUiState` is now fully implemented** — all 5 originally-sketched properties
+  (`indicatorVisible`, `indicatorOffset`, `tintColor`, `slots`, `blinkIntervalMs`) exist and are wired,
+  as of `importance-based-sizing`/`category-icons-and-assets` (§14/§15). No longer a partial surface —
+  this line in earlier handoffs is now resolved, kept here only as a closure note.
+- **This session's device-testing pattern is now established practice** (§14's closing paragraph) —
+  worth reading before doing more live `adb`-driven testing with the user: batch non-visual `adb`
+  verification, ask for unlock only right before a UI-interaction step, avoid multi-minute real-time
+  waits where a `dumpsys`-based check can substitute.
+- **Package name placeholder**: `com.virtualed.app`, still unconfirmed by the user — not urgent, not
+  a blocker (§5/§6).
+- **Old `NO-LED` folder cleanup**: `c:\Users\<user>\vscode2\NO-LED` — status not re-checked in several
+  sessions; carried over.
 - **App icon**: interim Material Symbols plan stands, final art deferred (carried over).
-- `docs/QA.md` #13 — app-to-indicator-category mapping mechanism (manual vs. auto). Deferred,
-  only blocks the (non-MVP) `category-icons-and-assets` feature.
-- `docs/QA.md` #16 (new, §11) — an OEM ambient/doze wakefulness path (`WAKEFULNESS_DOZING`)
-  intermittently prevented `FakeSleepActivity`'s full-screen-intent notification from
-  auto-launching, reproduced twice on arrows We2 Plus during this session's testing. Both times
-  fixed by force-stopping and relaunching the app; root cause (OEM doze component vs. USB-cable
-  interference vs. some in-app state) not isolated. Not a blocker — every retry after a reset
-  passed. Worth a repeat test via adb over Wi-Fi or fully battery-only (no adb attached) if it
-  recurs.
-- Secure-keyguard mechanism (`docs/DECISIONS.md` §18) was validated on arrows We2 Plus during
-  planning, and an earlier session's manual on-device pass (§8) confirmed the actual shipped
-  `fake-sleep-overlay` code path also works over a secure lock — but the specific device model used
-  for that pass wasn't recorded. An earlier follow-up session ran extensive sense9 testing (§9) that
-  confirmed `FakeSleepActivity` renders and persists correctly on sense9, but the device was already
-  unlocked by the user before each check there, so whether sense9's lock was configured as
-  **secure** during that testing was not verified. This session's MVP Integration Test (§11) *did*
-  run with a confirmed secure lock, but on arrows We2 Plus, not sense9 (switched devices mid-session
-  due to a hard-to-press power button on the sense9 unit) — so a confirmed secure-lock pass
-  specifically on the Sharp AQUOS sense9 is still worth doing opportunistically, not a blocker.
-- **Package name placeholder**, **old `NO-LED` folder cleanup**, and **app icon** carry over
-  unchanged from earlier sessions (§5/§6) — none are blockers.
+- `docs/QA.md` #16 — the OEM ambient/doze wakefulness quirk (`WAKEFULNESS_DOZING`) on arrows We2
+  Plus (§11); not reproduced again in §14/§15's extensive testing this session, but root cause still
+  not isolated. Not a blocker.
+- Secure-keyguard mechanism (`docs/DECISIONS.md` §18): confirmed on arrows We2 Plus (§8, §11); a
+  confirmed secure-lock pass specifically on the Sharp AQUOS sense9 is still outstanding, not a
+  blocker (carried over unchanged for several sessions now).
 
-## 15. Recommended Next Step
+## 17. Recommended Next Step
 
 **MVP is fully complete** (§11), the `other/`-tier pre-implementation cross-consistency review and
-architecture fix are done (§12), and the first 3 of 10 `other/`-tier features are now implemented,
-reviewed, and merged (§13): `dnd-handling` (PR #8), `auto-stop-conditions`/battery (PR #9),
-`auto-stop-conditions`/proximity (PR #10).
+architecture fix are done (§12), and 8 of 10 `other/`-tier features are implemented, reviewed, and
+merged (§13/§14): `dnd-handling` (PR #8), `auto-stop-conditions`/battery (PR #9),
+`auto-stop-conditions`/proximity (PR #10), `burn-in-protection` (PR #11),
+`indicator-color-customization` (PR #12), `importance-based-sizing` (PR #13),
+`auto-stop-conditions`/quiet-hours (PR #14). `category-icons-and-assets` (the 9th) is implemented,
+reviewed, and extensively live-tested, but **PR #15 is still open, not merged** (§15) — this is
+where the next session should pick up.
 
-1. Implement `burn-in-protection` next (§12/§14's recommended order, position 4) — it needs
-   `ProximityMonitor`'s callback (already wired in `FakeSleepSessionController.kt`, §13) extended
-   with its own `onProximityCoveredChanged()` call per its own PLAN.md §4, and needs to add
-   `indicatorOffset` to `FakeSleepIndicatorUiState` (currently only holding `indicatorVisible`, §13)
-   — introducing whatever composable structure (`IndicatorGroup`/`SlotIcon`-shaped, per
-   `fake-sleep-overlay/PLAN.md` §7) `FakeSleepActivity`'s render code needs for that, since the
-   current render code is just a plain `if (indicatorVisible)` wrap with no such structure yet.
-   Follow the same branch (`feature/burn-in-protection`)/implement (`developer-lite`)/review
-   (`reviewer-lite`)/PR flow used for §13's three features.
-2. After `burn-in-protection`, continue down §12/§14's recommended order:
-   `indicator-color-customization` → `importance-based-sizing` →
-   `auto-stop-conditions`/quiet-hours → `category-icons-and-assets` →
-   `multi-notification-stacking` → `localization-additional-languages`.
-3. `docs/QA.md` #13 (category mapping mechanism) needs resolving before `category-icons-and-assets`
-   provides real product value (it can ship behind an always-`OTHER` stub without resolving #13, per
-   that plan's own §4, but stays cosmetically inert until then) — §12's recommended order places
-   this resolution alongside that feature, not any earlier.
-4. Resolve the package name placeholder before any public release is pursued (not urgent now,
-   §5/§6).
-5. `docs/QA.md` #17 and #18 (§13, both new, both non-blocking) are worth a design decision at some
-   point — whether to fix the narrow DND-cache-refresh race and the battery-threshold live-refresh
-   gap, or accept both as documented behavior — but neither blocks further `other/`-tier
-   implementation.
-6. When a `gh pr merge` gets blocked, apply the workflow preference from §8/§9/§10: ask via
+1. **Resume PR #15 verification** (§15, item 8 in that section's bug list). The immediate task the
+   user asked to defer to a fresh session: confirm commit `34371f6` (dropping `MATCH_DEFAULT_ONLY`
+   from `InstalledAppPicker.loadInstalledApps()`'s `queryIntentActivities()` call) actually makes
+   Rakuten Link (`jp.co.rakuten.mobile.rcs`) appear in the app picker on the `M06` test device. The
+   fix is already built, committed (`34371f6`), pushed, and was installed on the device at the end of
+   the previous session — a fresh session just needs the user to open the category (or keyword)
+   settings screen and confirm Rakuten Link is now visible in the list. If confirmed working: proceed
+   to step 2. If still missing: investigate further before merging (read `InstalledAppPicker.kt`'s
+   current query logic fresh, and consider whether some other resolution constraint is still filtering
+   it out — the diagnostic technique that worked well this session was `adb shell dumpsys package
+   <pkg>` to inspect the target app's actual declared intent-filters directly, rather than guessing).
+2. **Get a final `reviewer-lite` pass** over the 3 not-yet-reviewed commits (`84f3bb5` size increase,
+   `be71a7b` chip toggle-off, `34371f6` `MATCH_DEFAULT_ONLY` fix) — mirroring the two-round review
+   pattern already used earlier in this same PR (§15) and for quiet-hours (§14). Give the reviewer the
+   full context of *why* each fix exists (user-reported issues during live testing, not self-initiated
+   changes) so it can judge correctness rather than re-relitigating the UX decisions themselves.
+3. **Merge PR #15** once reviewed (ask the user how — `gh pr merge` first per the established
+   preference, §8/§9/§10, falling back to local `git merge --no-ff` + `push` only if blocked), then
+   update `docs/plans/README.md`'s `category-icons-and-assets` row (currently stale, still says
+   "blocked on QA #13") to "Done," matching the convention every other merged `other/`-tier row
+   already follows in that file.
+4. **Continue down the build order**: `multi-notification-stacking` → `localization-additional-languages`
+   (§12/§16). `multi-notification-stacking` becomes meaningful to build/test only once
+   `category-icons-and-assets` is actually merged (per-slot category icons need to exist first) —
+   this is now true once step 3 completes.
+5. Resolve the package name placeholder before any public release is pursued (not urgent now, §5/§6).
+6. `docs/QA.md` #17, #18, #19 (all non-blocking) are worth a design decision at some point but don't
+   block further `other/`-tier implementation.
+7. When a `gh pr merge` gets blocked, apply the workflow preference from §8/§9/§10: ask via
    `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than retrying
-   `gh pr merge` itself. Note: this session's three PRs (#8, #9, #10) all merged cleanly via
-   `gh pr merge` on the first attempt — no blocks occurred, so this preference simply didn't need to
-   be exercised this time.
+   `gh pr merge` itself.
+8. If more live on-device testing is needed with the user, read §14's closing paragraph first (the
+   established pattern for working efficiently around this device's short re-lock timer and the
+   `docs/QA.md` #16 doze quirk).
