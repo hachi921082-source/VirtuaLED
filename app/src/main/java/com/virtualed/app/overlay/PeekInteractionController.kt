@@ -17,6 +17,10 @@ class PeekInteractionController(
     private val activity: FakeSleepActivity, // トグル対象のコンテンツ view を所有する
     private val sessionController: FakeSleepSessionController,
     private val pendingRepo: PendingNotificationsRepository,
+    // uiState 遷移 (INDICATOR_SHOWN <-> PREVIEW_SHOWN) の度に呼ばれる。BurnInProtector が
+    // プレビューテキスト表示中は再配置ループを一時停止するために使う
+    // (docs/plans/other/burn-in-protection/PLAN.md §4)。既定は no-op。
+    private val onUiStateChanged: (OverlayUiState) -> Unit = {},
 ) {
     companion object {
         // detailed-spec.md §8 が示す 3-5 秒レンジ内の固定値。MVP では設定 UI を持たない (§5)。
@@ -31,6 +35,7 @@ class PeekInteractionController(
         when (uiState) {
             OverlayUiState.INDICATOR_SHOWN -> {
                 uiState = OverlayUiState.PREVIEW_SHOWN
+                onUiStateChanged(uiState)
                 activity.showPreviewText(buildPreviewLines())
                 startPreviewTimeout()
             }
@@ -60,6 +65,7 @@ class PeekInteractionController(
             sessionController.endSession() // 表示するものがない — ディスミスアニメーション等は不要
         } else {
             uiState = OverlayUiState.INDICATOR_SHOWN
+            onUiStateChanged(uiState)
             activity.showDot()
         }
     }
