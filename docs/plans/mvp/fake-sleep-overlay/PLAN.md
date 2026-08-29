@@ -276,3 +276,81 @@ the Activity if it is currently resumed.
   `onScreenOff()`'s gating check (alongside the `pendingRepo.isEmpty()` check already shown in §2
   above), and calls `endSession()` directly when the feature is flipped OFF via the notification
   action while a session is active.
+- **Extension surface for `other/`-tier visual features** (see `docs/DECISIONS.md` §20 for why this
+  shape was chosen): `FakeSleepIndicatorUiState` (`com.virtualed.app.overlay`) is a separate
+  state-holder class — not folded into `FakeSleepActivity` itself — instantiated once alongside
+  `FakeSleepActivity` (same lifecycle as `previewLinesState` above) and exposed via
+  `FakeSleepActivityHolder`, following the exact same hand-off pattern as its existing
+  `current`/`sessionController` fields (§1):
+
+  ```kotlin
+  object FakeSleepActivityHolder {
+      var current: FakeSleepActivity? = null
+      var sessionController: FakeSleepSessionController? = null
+      var indicatorUiState: FakeSleepIndicatorUiState? = null // set once, alongside `current` — §7
+  }
+  ```
+
+  It owns five `MutableState` properties, each one the render target one or more `other/`-tier
+  plans write to instead of reaching into a `WindowManager`/`View` layer (this architecture has
+  none):
+  - `slots: MutableState<List<IndicatorSlotUiState>>` — the rendered dot/icon slot list. Default is
+    a single slot representing this plan's plain dot:
+    `IndicatorSlotUiState(category = null, count = 1, highImportance = false)`.
+    ```kotlin
+    data class IndicatorSlotUiState(
+        val category: IndicatorCategory? = null, // null = plain dot; non-null once
+            // docs/plans/other/category-icons-and-assets/PLAN.md lands (that plan owns
+            // IndicatorCategory itself — not redefined here)
+        val count: Int = 1,
+        val highImportance: Boolean = false,
+    )
+    ```
+    Written by `docs/plans/other/multi-notification-stacking/PLAN.md` (slot grouping/overflow),
+    `docs/plans/other/category-icons-and-assets/PLAN.md` (each slot's `category`), and
+    `docs/plans/other/importance-based-sizing/PLAN.md` (each slot's `highImportance`).
+  - `tintColor: MutableState<Color>` — default `Color.White`, superseding this plan's hardcoded
+    `#FFFFFF` (above). Written by `docs/plans/other/indicator-color-customization/PLAN.md`.
+  - `blinkIntervalMs: MutableState<Long?>` — `null` = no blink. **Synchronized across all
+    currently-shown slots — one shared interval, not a per-slot interval** (`docs/DECISIONS.md` §20).
+    When any currently-shown slot has `highImportance = true`, *all* currently-shown slots blink
+    together at this one interval, including slots that are not themselves high-importance. Written
+    by `docs/plans/other/importance-based-sizing/PLAN.md`.
+  - `indicatorOffset: MutableState<IntOffset>` — default `IntOffset.Zero`. Moves the whole slot
+    group as one anchor; burn-in-protection repositions the group, not individual slots — the
+    quadrant layout inside the group (`docs/plans/other/multi-notification-stacking/PLAN.md` §4)
+    stays fixed relative to the anchor, only the anchor moves. Written by
+    `docs/plans/other/burn-in-protection/PLAN.md`.
+  - `indicatorVisible: MutableState<Boolean>` — default `true`. When `false`, the slot group renders
+    nothing; session state, pending-notification tracking, and the `WakeLock` guard (§4) are all
+    unaffected — this is for proximity-cover suspend, a temporary visibility toggle, not a session
+    teardown. Written by `docs/plans/other/auto-stop-conditions/PLAN-1-proximity.md`.
+
+  `FakeSleepContent` (§5 above) reads these states to render the slot group in place of today's
+  fixed single dot `Box`, roughly:
+
+  ```kotlin
+  @Composable
+  private fun IndicatorGroup(uiState: FakeSleepIndicatorUiState) {
+      if (!uiState.indicatorVisible.value) return
+      val slots = uiState.slots.value
+      val blinkMs = uiState.blinkIntervalMs.value
+      val blinking = blinkMs != null && slots.any { it.highImportance }
+      Box(modifier = Modifier.offset { uiState.indicatorOffset.value }) {
+          slots.forEachIndexed { index, slot ->
+              SlotIcon(
+                  slot = slot,
+                  tint = uiState.tintColor.value,
+                  blinking = blinking, // shared across all slots — see blinkIntervalMs above
+                  blinkIntervalMs = blinkMs,
+                  modifier = Modifier.quadrantOffset(index), // no-op offset when only one slot
+              )
+          }
+      }
+  }
+  ```
+
+  This section documents the surface itself; the concrete render/animation logic and each
+  property's writer belong to the `other/`-tier plans listed above. This plan (MVP) ships only the
+  state holder and the single-slot default — `IndicatorGroup`/`SlotIcon` above degenerate to
+  rendering exactly the plain dot until those plans land.
