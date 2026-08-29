@@ -1,0 +1,49 @@
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+build/
+
+# Gradle files
+.gradle/
+gradle-app.setting
+
+# Local configuration file (contains SDK path, machine-specific — never commit)
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystore files (never commit signing keys)
+*.jks
+*.keystore
+
+# Google Services (if added later)
+google-services.json
+
+# Log/OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Scratch/throwaway prototypes (see docs/DECISIONS.md §18 for why these exist and are disposable)
+prototype-*/

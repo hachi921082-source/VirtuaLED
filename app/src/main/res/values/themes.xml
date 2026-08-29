@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- アプリ全体のベーステーマ (Material3, DayNight)。Compose 側は ui/theme/Theme.kt の
+         VirtuaLedTheme が実際の配色を担当するので、ここは Activity ウィンドウ属性用。 -->
+    <style name="Theme.VirtuaLed" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- fake-sleep-overlay/PLAN.md §5 が要求するテーマ。FakeSleepActivity はまだ未実装だが、
+         そちらの PLAN.md 実装がこのリソース名を前提にしているため先に定義しておく。
+         ロック画面上に全画面表示するため、黒背景・ステータスバー/ナビゲーションバー無しの
+         全画面スタイルとする。 -->
+    <style name="Theme.VirtuaLed.FakeSleep" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/black</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+</resources>
