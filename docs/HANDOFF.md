@@ -15,8 +15,9 @@
 9. Feature 5 Progress and a Fake-Sleep Screen-Timeout Bug Found/Fixed via Sense9 Testing (Follow-Up Session)
 10. Feature 6 Progress and MVP Completion (Follow-Up Session)
 11. MVP Integration Test and Pre-`other/`-Tier Cleanup (Follow-Up Session)
-12. Still Open
-13. Recommended Next Step
+12. `other/`-Tier Architecture Fix and Implementation Order (Follow-Up Session)
+13. Still Open
+14. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -487,7 +488,95 @@ an open item.
 README.md`, `gradle.properties`, `docs/plans/other/phone-call-overlay-suppression/PLAN.md`, and
 `docs/detailed-spec.md`.
 
-## 12. Still Open
+## 12. `other/`-Tier Architecture Fix and Implementation Order (Follow-Up Session)
+
+This session opened by reading the previous handoff, then ran the `reviewer-lite` cross-consistency
+pass over `docs/plans/other/` that `docs/plans/README.md` itself calls for once the MVP tier is
+complete (§11 above) — the recommended next step from the previous handoff.
+
+**Finding**: 6 of the 9 `other/` features (`burn-in-protection`, `indicator-color-customization`,
+`importance-based-sizing`, `category-icons-and-assets`, `multi-notification-stacking`,
+`auto-stop-conditions/PLAN-1-proximity.md`) still described a pre-MVP `WindowManager`/`View`-based
+overlay architecture (`OverlayWindowManager`, `OverlayIndicatorView`, `MultiIndicatorContainerView`,
+`ImageView.setColorFilter()`, `ObjectAnimator`) that no longer exists — the actual, already-shipped
+mechanism is the Compose-rendered `FakeSleepActivity` from §18's architecture correction. A direct
+contradiction was also found between two sibling `other/` plans about whether a since-removed
+`OverlayWindowManager.hide()/restoreCurrentState()` mechanism still existed.
+
+**Design decision** (discussed directly with the user, not delegated, since it required choosing a
+new architecture rather than just fixing stale references — full rationale in `docs/DECISIONS.md`
+§20): a new `FakeSleepIndicatorUiState` class (`com.virtualed.app.overlay`), separate from
+`FakeSleepActivity` itself, holding five Compose `MutableState` properties (`slots`, `tintColor`,
+`blinkIntervalMs`, `indicatorOffset`, `indicatorVisible`) that every `other/`-tier visual feature
+writes to instead of reaching into a View/WindowManager layer. Two notable choices made along the
+way: blink is synchronized across all shown slots rather than per-slot/staggered (staggering doesn't
+reduce total battery draw and adds complexity — a user-proposed alternative that turned out not to
+hold up), and `BurnInProtector`'s three independent pause/resume triggers (session active, indicator
+UI state, proximity covered) are combined through one `recompute()` gate rather than each trigger
+calling `start()`/`stop()` directly, avoiding a race where covering the proximity sensor during
+`PREVIEW_SHOWN` and then uncovering would incorrectly resume repositioning mid-preview.
+
+**Implementation**: `docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7 was extended with this surface;
+`developer-lite` then rewrote the 6 affected files against it (preserving each file's own
+non-rendering logic — keyword matching, DataStore schemas, grid/overflow math — unchanged) and
+`reviewer-lite` reviewed the rewrite, approving it with one minor, non-blocking observation: the
+rewritten `burn-in-protection/PLAN.md` didn't yet document pausing during proximity-cover even
+though the rewritten `auto-stop-conditions/PLAN-1-proximity.md` claimed it did. Fixed directly (not
+delegated) with the combined-gate design described above, since a naive fix (just adding another
+independent `start()`/`stop()` call pair) would have reintroduced exactly the race condition that
+design avoids.
+
+**Documentation-convention cleanup**: per the "Documentation Content Separation Rule"
+(`~/.claude/shared/dev-workflow.md` §8), rationale/rejected-alternatives content that `developer-lite`
+and the burn-in fix had written directly into `fake-sleep-overlay/PLAN.md` §7,
+`burn-in-protection/PLAN.md` §4, and `multi-notification-stacking/PLAN.md` §2 was extracted into the
+new `docs/DECISIONS.md` §20, leaving those PLAN.md sections stating only What/How with a link back.
+
+**Commits**: 9 files committed individually (one file per commit, per `~/.claude/CLAUDE.md`'s
+convention) — `docs/DECISIONS.md` (new §20), the 6 rewritten `other/` plans plus
+`fake-sleep-overlay/PLAN.md` §7, and `docs/plans/README.md` (marking the cross-consistency pass as
+done).
+
+**Implementation difficulty/scope assessment and recommended order** (requested by the user, to plan
+the `other/`-tier build sequence): each of the 9 features was assessed for difficulty and scope
+against the current codebase and the now-finalized `FakeSleepIndicatorUiState` surface —
+
+| Order | Feature | Difficulty | Scope | Key notes |
+|---|---|---|---|---|
+| — | `phone-call-overlay-suppression` | Trivial | None | Already resolved as "no implementation needed" (§11) — nothing left to build. |
+| 1 | `dnd-handling` | Easy | Small | Extends the existing `NotificationSyncListenerService` with two lifecycle overrides, one `DataStore` boolean, one gating guard line. No new permissions or components. |
+| 2 | `auto-stop-conditions` (battery, `PLAN-2-battery.md`) | Easy | Small | One new `BroadcastReceiver` (`ACTION_BATTERY_CHANGED`, no permission needed), one `DataStore` int, a full-stop gating hook. Fully self-contained. |
+| 3 | `auto-stop-conditions` (proximity, `PLAN-1-proximity.md`) | Easy–Medium | Small | One `SensorEventListener` wrapper, writes `indicatorVisible`. Shares a callback-wiring point with `burn-in-protection` (both hook into the same proximity-covered signal) — implementing it right before burn-in-protection avoids a follow-up edit to wire them together later. |
+| 4 | `burn-in-protection` | Easy–Medium | Small–Medium | One `Handler` reposition loop plus the combined 3-condition `recompute()` gate designed this session. Depends on `dismiss-and-peek-interaction`'s `OverlayUiState` transitions (already shipped) and proximity's covered/uncovered signal (step 3). |
+| 5 | `indicator-color-customization` | Medium | Small–Medium | Mostly a settings-UI task (palette swatches + HEX field + validation); the render-side change is a single shared `tintColor` write, no per-view wiring needed. |
+| 6 | `importance-based-sizing` | Medium | Medium | The most substantial settings UI among the smaller features (per-app keyword add/remove list), NFKC-normalized substring matching, a blink-interval slider, and a re-evaluation hook on every pending-notification change. |
+| 7 | `auto-stop-conditions` (quiet hours, `PLAN-3-quiet-hours.md`) | Medium–Hard | Medium | The most OS-mechanism-heavy of the nine: two self-re-arming `AlarmManager` alarms, a `BroadcastReceiver` for firing, a `BootCompletedReceiver`, and a new `RECEIVE_BOOT_COMPLETED` permission — the only `other/` feature needing a boot receiver. Worth extra real-device time (including an actual reboot) to verify re-arming survives it. |
+| 8 | `category-icons-and-assets` | Medium | Medium | Blocked on `docs/QA.md` #13 for real product value — it can ship behind an always-`OTHER` stub `CategoryMapper` per its own §4, but stays cosmetically inert until #13 is resolved. Also needs non-coding legwork: sourcing/licensing 5 icon assets. Resolving QA #13 alongside or just before this step is recommended rather than shipping the stub and revisiting later. |
+| 9 | `multi-notification-stacking` | Hard | Large | The most complex `other/` feature: slot grouping/overflow logic, a fixed 2x2 grid layout, count-badge rendering, and interactions with both `category-icons-and-assets` (per-slot icons) and `importance-based-sizing` (per-slot high-importance). Most meaningful — and most testable — once both of those already exist; also the hardest to verify on-device (needs several real, simultaneous notifications from different apps). |
+| 10 | `localization-additional-languages` | Easy (mechanically) | Small, but sequencing-sensitive | Pure translation pass over whatever `values/strings.xml` keys already exist — trivial code, but its own plan explicitly frames it as tracking "whatever keys exist at the time it's implemented," so it belongs last (or as a recurring sweep) rather than early, to avoid redoing it after every subsequent feature adds new strings. |
+
+Rationale for this order beyond raw difficulty: features 1–2 are the simplest and validate the
+already-established "extend the gating check" pattern with no new dependencies. Features 3–4 are
+sequenced together because they share a wiring point discovered during this session's design work.
+Features 5–6 are independent and can be done in either order. Feature 7 is saved for after some
+implementation momentum/confidence is built, given it carries the most new OS-mechanism surface.
+Features 8–9 are sequenced last among the visual features specifically because
+`multi-notification-stacking` is far more meaningful to build and test once real category icons and
+importance-based sizing already exist to combine with, rather than testing it against plain OTHER
+icons first and having to re-verify later. Feature 10 is last by its own plan's design.
+
+No new `docs/QA.md` entries were raised by this session's `other/`-tier work.
+
+## 13. Still Open
+
+- **`other/`-tier build order** (new, §12): the recommended order is `dnd-handling` →
+  `auto-stop-conditions`/battery → `auto-stop-conditions`/proximity → `burn-in-protection` →
+  `indicator-color-customization` → `importance-based-sizing` → `auto-stop-conditions`/quiet-hours →
+  `category-icons-and-assets` → `multi-notification-stacking` → `localization-additional-languages`.
+  Not a hard requirement (`docs/plans/README.md` still says "no strict sequencing"), but following
+  it avoids rework at two specific coupling points: proximity/burn-in-protection's shared
+  callback-wiring point, and multi-notification-stacking being more meaningful to build/test once
+  category-icons-and-assets and importance-based-sizing already exist.
 
 - **Package name placeholder**: `com.virtualed.app` is used throughout `docs/spec.md` and all
   `PLAN.md` files, still unconfirmed by the user — explicitly deferred (§5 above), not a blocker.
@@ -516,22 +605,28 @@ README.md`, `gradle.properties`, `docs/plans/other/phone-call-overlay-suppressio
 - **Package name placeholder**, **old `NO-LED` folder cleanup**, and **app icon** carry over
   unchanged from earlier sessions (§5/§6) — none are blockers.
 
-## 13. Recommended Next Step
+## 14. Recommended Next Step
 
-**MVP is now fully complete** — all 6 `docs/plans/mvp/` features plus the integration test (§11) are
-implemented, reviewed, merged, and passed on a real device with a secure lock.
+**MVP is fully complete** (§11) and the `other/`-tier pre-implementation cross-consistency review
+and architecture fix are also done (§12) — `docs/plans/other/` is now internally consistent and
+ready to implement against the real `FakeSleepIndicatorUiState` surface.
 
-1. Start the `other/` tier: a `reviewer-lite` cross-consistency pass over all 9 features/12
-   `PLAN.md` files in `docs/plans/other/` (they reference MVP internals that may have shifted during
-   implementation — `docs/plans/README.md`'s own stated first step). One of those 9 plans
-   (`phone-call-overlay-suppression`) was already pre-revised this session (§11) to match the
-   current architecture, so that particular plan should need no further changes from this pass —
-   one fewer stale reference for `reviewer-lite` to catch. After the pass: implement the `other/`
-   features in any order (no strict sequencing between them).
-2. `docs/QA.md` #13 (category mapping mechanism) needs resolving specifically before
-   `category-icons-and-assets` is implemented — not before the cross-consistency pass itself.
-3. Resolve the package name placeholder before any public release is pursued (not urgent now,
+1. Start `other/`-tier implementation with `dnd-handling` (§12's recommended order, table above) —
+   the simplest feature, self-contained, no new permissions/components, validates the
+   already-established "extend the gating check" pattern before moving to features with more moving
+   parts. Follow the same branch/implement (`developer-lite`)/review (`reviewer-lite`)/PR flow
+   established for the MVP features (§5/§6/§7/§8/§9/§10).
+2. When implementing `auto-stop-conditions`'s proximity (`PLAN-1-proximity.md`) and
+   `burn-in-protection` (recommended order positions 3-4, §12), do them close together — they share
+   a callback-wiring point (`BurnInProtector.onProximityCoveredChanged()`) that neither plan's own
+   file fully spells out who constructs and wires; implementing them back-to-back avoids having to
+   revisit the first one's code once the second is built.
+3. `docs/QA.md` #13 (category mapping mechanism) needs resolving before `category-icons-and-assets`
+   provides real product value (it can ship behind an always-`OTHER` stub without resolving #13, per
+   that plan's own §4, but stays cosmetically inert until then) — §12's recommended order places
+   this resolution alongside step 8 (`category-icons-and-assets`), not any earlier.
+4. Resolve the package name placeholder before any public release is pursued (not urgent now,
    §5/§6).
-4. When a `gh pr merge` gets blocked going forward, apply the workflow preference from §8/§9/§10:
+5. When a `gh pr merge` gets blocked going forward, apply the workflow preference from §8/§9/§10:
    ask via `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than
    retrying `gh pr merge` itself — this has now succeeded cleanly for PRs #4, #5, #6, and #7.
