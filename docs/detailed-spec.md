@@ -50,7 +50,6 @@ result, and `docs/QA.md` #14 (resolved).
 ## 2. Manifest Permissions and Foreground Service Declaration
 
 Required `<uses-permission>` entries:
-- `BIND_NOTIFICATION_LISTENER_SERVICE`
 - `USE_FULL_SCREEN_INTENT` (launches `FakeSleepActivity` over the lock screen — see §1;
   auto-granted on sideloaded/adb-installed builds, but Android 14+ restricts default grant to
   call/alarm-category apps at Google Play install time — a consideration for the deferred general
@@ -66,6 +65,25 @@ Required `<uses-permission>` entries:
 
 **`SYSTEM_ALERT_WINDOW` is no longer needed** — the originally-specified raw overlay window
 mechanism was replaced (§1, `docs/DECISIONS.md` §18) before it was ever built.
+
+**`BIND_NOTIFICATION_LISTENER_SERVICE` is not a `<uses-permission>` entry** — it is a
+signature/system-level permission the app declares on its own `NotificationListenerService`
+component instead, so the OS can verify the binding:
+
+```xml
+<service
+    android:name=".service.NotificationSyncListenerService"
+    android:exported="false"
+    android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+    <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+    </intent-filter>
+</service>
+```
+
+An app can never hold this permission by requesting it; there is nothing for a `<uses-permission>`
+entry to do here. Actual user-granted listener access is a separate settings-screen toggle (see
+`docs/plans/mvp/permission-onboarding/PLAN.md`), unrelated to this manifest declaration.
 
 `specialUse` Foreground Service type requires a `<property>` declaration inside `<service>`:
 
