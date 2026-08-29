@@ -13,8 +13,9 @@
 7. Feature 3 Progress (Follow-Up Session)
 8. Feature 4 Progress (Follow-Up Session)
 9. Feature 5 Progress and a Fake-Sleep Screen-Timeout Bug Found/Fixed via Sense9 Testing (Follow-Up Session)
-10. Still Open
-11. Recommended Next Step
+10. Feature 6 Progress and MVP Completion (Follow-Up Session)
+11. Still Open
+12. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -369,7 +370,63 @@ screenshot, so this session's testing does not by itself confirm `docs/DECISIONS
 secure-keyguard rendering claim on sense9 specifically (see §10 below, this item was already open
 before this session and remains so).
 
-## 10. Still Open
+## 10. Feature 6 Progress and MVP Completion (Follow-Up Session)
+
+Implemented MVP feature 6, `onoff-notification-toggle` — the last of the 6 MVP features — following
+the same branch/implement/review/PR flow established for features 1-5 (§5/§6/§7/§8/§9): branch
+`feature/mvp-onoff-notification-toggle`. This session opened by reading the previous handoff, then
+went straight to implementation on the user's explicit instruction.
+
+**Implementation** (`developer-lite`, per `docs/plans/mvp/onoff-notification-toggle/PLAN.md` §1-§7):
+added `FeatureEnabledState` (in-memory synchronized singleton flag, default `true`, with an
+`onChanged` listener callback) and `OnOffActionReceiver` (`BroadcastReceiver` for the notification
+action's `PendingIntent`, registered `exported="false"`). `VirtuaLedForegroundService.onCreate()` now
+registers a listener that re-posts the notification via the extended `buildNotification(enabled)`
+(adds the ON/OFF toggle action button) and, if the flag flips to `false` while a fake-sleep session
+is active, calls `fakeSleepSessionController.endSession()`. `FakeSleepSessionController.onScreenOff()`
+(from the already-merged `fake-sleep-overlay` feature) gained a
+`if (!FeatureEnabledState.isEnabled()) return` guard alongside its existing
+`pendingRepo.isEmpty()` check — not in place of it. `MainActivity`'s switch-ON path now calls
+`FeatureEnabledState.setEnabled(true)` before `ACTION_START` (resume, in case it was left OFF via the
+notification action); switch-OFF path is untouched (`ACTION_STOP` → `stopSelf()`), preserving the
+plan's core asymmetric design: the notification action toggles the flag and keeps the service+
+notification alive, while only the in-app switch OFF fully terminates the service.
+`gradlew.bat assembleDebug` — BUILD SUCCESSFUL (note: this environment's default `JAVA_HOME` is JDK
+25, which breaks Gradle 8.9's embedded Kotlin DSL compiler — both `developer-lite` and
+`reviewer-lite` had to override with
+`JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"` to build; worth fixing at the environment
+level in a future session, but not something this handoff blocks on).
+
+**Review** (`reviewer-lite`): approved. Line-by-line diff against PLAN.md §1-§7 confirmed, including
+the critical asymmetry point (`OnOffActionReceiver` deliberately does not call `stopSelf()` or send
+`ACTION_STOP`); confirmed the new guard in `FakeSleepSessionController.onScreenOff()` sits alongside,
+not replacing, the pre-existing gating check (no regression to features 4/5); confirmed no scope
+creep; independently re-ran `assembleDebug` clean. Device `SH-M26` (sense9) was reachable via `adb`
+and the freshly built APK was installed, but the device was locked with a secure keyguard and the
+reviewer had no PIN — it deliberately did not attempt to guess it (lockout/wipe risk) and also
+confirmed, as an aside, that `am start-foreground-service` against the app's `exported="false"`
+service is correctly rejected by the OS (not a bypass). Live toggle-behavior confirmation (action tap
+flips label without killing the service; in-app switch OFF fully stops it) was therefore **not**
+completed on-device this round — same category of gap as features 2/4/5's reviews when device
+access was limited, not treated as a merge blocker per established precedent.
+
+**Merge**: PR #7 created; `gh pr merge` was blocked by the Claude Code auto-mode classifier (as with
+PRs #4-#6). Per the established workflow preference (§8/§9, `~/.claude/CLAUDE.md` "Blocked Git/GitHub
+Actions"), the user was offered a choice via `AskUserQuestion` (local `git merge --no-ff` + `push` /
+retry `gh pr merge` / hold) and chose local merge+push, which succeeded — GitHub recognized the PR as
+`MERGED` automatically once the equivalent commit landed on `master`. Local and remote feature
+branches deleted after merge. `docs/plans/README.md`'s status column now shows this feature as
+`Done (merged, PR #7)`.
+
+**Commit granularity**: each of the 8 changed/new files was committed individually (per
+`~/.claude/CLAUDE.md`'s "one file per commit" convention), matching the pattern already used for
+features 1-5.
+
+**MVP is now feature-complete**: all 6 `docs/plans/mvp/` features (build order per §4) are
+implemented, reviewed, and merged. The only remaining MVP-tier item is the integration test itself
+(`docs/plans/README.md` row 7) — see §11/§12 below.
+
+## 11. Still Open
 
 - **Package name placeholder**: `com.virtualed.app` is used throughout `docs/spec.md` and all
   `PLAN.md` files, still unconfirmed by the user — explicitly deferred (§5 above), not a blocker.
@@ -393,21 +450,36 @@ before this session and remains so).
   (PIN/pattern/password) during that testing was not verified — a confirmed pass specifically with
   a secure lock active on the Sharp AQUOS sense9 is still worth doing opportunistically, not a
   blocker.
+- **Feature 6's live on-device toggle confirmation** (new, §10): `reviewer-lite` could not complete
+  a live check of the notification-action toggle (label flips ON/OFF without killing the service;
+  in-app switch OFF fully stops it) because the test device was locked with no PIN available to the
+  reviewer. Code/build review was still thorough and this was not treated as a merge blocker (same
+  handling as prior features' device-access gaps), but a real on-device pass is worth doing
+  opportunistically — a few taps per PR #7's description.
+- **This environment's `JAVA_HOME`** (new, §10): the shell's default `JAVA_HOME` is JDK 25, which
+  breaks Gradle 8.9's embedded Kotlin DSL compiler (`IllegalArgumentException: 25.0.3` in
+  `JavaVersion.parse`). Both `developer-lite` and `reviewer-lite` had to override with
+  `JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"` to build this session. Not a blocker
+  (the workaround is known and documented now), but worth fixing at the environment/shell-profile
+  level in a future session so it doesn't need rediscovering each time.
 
-## 11. Recommended Next Step
+## 12. Recommended Next Step
 
-1. Implement MVP feature 6, `onoff-notification-toggle` — the last feature in the corrected build
-   order (§4) — following the same branch/implement/review/PR flow established in §5-§9.
-2. Run the MVP Integration Test checklist (`docs/plans/README.md`) once it lands. Much of this was
-   already exercised ad hoc on sense9 this session (§9: dot persistence, tap/preview/timeout,
-   power-button-dismiss, unlock-auto-dismiss all confirmed working with a notification pending),
-   but the formal checklist should still be run end-to-end afterward, ideally with a **secure**
-   lock actually configured on sense9 this time (§10's still-open item) or on arrows We2 Plus.
-3. Once that passes: **tell the user** (don't silently proceed), then start the `other/` tier —
+**MVP is now feature-complete** — all 6 `docs/plans/mvp/` features are implemented, reviewed, and
+merged (§10). Only the integration test (row 7) remains before the MVP tier is fully done.
+
+1. Run the MVP Integration Test checklist (`docs/plans/README.md` row 7, full 7-step list). Much of
+   it was already exercised ad hoc on sense9 in an earlier session (§9: dot persistence,
+   tap/preview/timeout, power-button-dismiss, unlock-auto-dismiss all confirmed working with a
+   notification pending) — but the formal checklist should still be run end-to-end now that feature
+   6 exists too (its own dismiss-via-notification-action step, checklist item 5, hasn't been
+   live-tested yet, see §11), ideally with a **secure** lock actually configured on sense9 (§11's
+   still-open item) or on arrows We2 Plus.
+2. Once that passes: **tell the user** (don't silently proceed), then start the `other/` tier —
    `reviewer-lite` cross-consistency pass on those `PLAN.md` files first (they reference MVP
    internals that may have shifted during implementation), then implement in any order.
-4. Resolve the package name placeholder before any public release is pursued (not urgent now,
+3. Resolve the package name placeholder before any public release is pursued (not urgent now,
    §5/§6).
-5. When a `gh pr merge` gets blocked going forward, apply the workflow preference from §8/§9: ask
-   via `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than
-   retrying `gh pr merge` itself — this has now succeeded cleanly for PRs #4, #5, and #6.
+4. When a `gh pr merge` gets blocked going forward, apply the workflow preference from §8/§9/§10:
+   ask via `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than
+   retrying `gh pr merge` itself — this has now succeeded cleanly for PRs #4, #5, #6, and #7.
