@@ -43,11 +43,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import android.app.TimePickerDialog
+import com.virtualed.app.autostop.QuietHoursScheduler
 import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.IndicatorColorSettings
+import com.virtualed.app.data.QuietHoursSettings
 import com.virtualed.app.data.parseHexColorOrNull
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.permission.PermissionChecker
@@ -168,6 +171,22 @@ fun MainSwitchScreen(onOpenKeywordSettings: () -> Unit = {}) {
         blinkIntervalMs = BlinkSettings.getIntervalMs(context)
     }
 
+    // docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §8 — クワイエットアワー設定。
+    // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (無効/01:00-07:00) を仮表示する。
+    var quietHoursWindow by remember { mutableStateOf(QuietHoursSettings.DEFAULT_WINDOW) }
+    LaunchedEffect(Unit) {
+        quietHoursWindow = QuietHoursSettings.getWindow(context)
+    }
+    // トグル/時刻ピッカーいずれの変更も、永続化と AlarmManager 予約の両方をその場で更新する
+    // (「保存」ボタンを持たない、この画面の他設定と同じ write-through 方式)。
+    val onQuietHoursWindowChanged: (QuietHoursSettings.Window) -> Unit = { window ->
+        quietHoursWindow = window
+        coroutineScope.launch {
+            QuietHoursSettings.setWindow(context, window)
+            QuietHoursScheduler(context).reschedule(window)
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -243,12 +262,71 @@ fun MainSwitchScreen(onOpenKeywordSettings: () -> Unit = {}) {
                         modifier = Modifier.width(240.dp),
                     )
                 }
+                QuietHoursSection(
+                    window = quietHoursWindow,
+                    onWindowChanged = onQuietHoursWindowChanged,
+                )
                 Button(
                     onClick = onOpenKeywordSettings,
                     modifier = Modifier.padding(top = 24.dp),
                 ) {
                     Text(text = stringResource(R.string.settings_keyword_settings_button))
                 }
+            }
+        }
+    }
+}
+
+/**
+ * クワイエットアワー (毎日の時間帯でフェイクスリープを完全抑止する) の設定 UI。
+ * 有効/無効スイッチ + 開始/終了の各ボタンから標準 TimePickerDialog (View ベース) を開く。
+ * HH:mm のテキスト入力パースを自前実装せず、Android 標準ダイアログに委ねる
+ * (docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §8)。
+ */
+@Composable
+private fun QuietHoursSection(
+    window: QuietHoursSettings.Window,
+    onWindowChanged: (QuietHoursSettings.Window) -> Unit,
+) {
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier.padding(top = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = stringResource(R.string.settings_quiet_hours_enabled_label))
+            Switch(
+                checked = window.enabled,
+                onCheckedChange = { checked -> onWindowChanged(window.copy(enabled = checked)) },
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        Row(modifier = Modifier.padding(top = 8.dp)) {
+            Button(onClick = {
+                TimePickerDialog(
+                    context,
+                    { _, hour, minute -> onWindowChanged(window.copy(startHour = hour, startMinute = minute)) },
+                    window.startHour,
+                    window.startMinute,
+                    true, // 24時間表示
+                ).show()
+            }) {
+                Text(text = stringResource(R.string.settings_quiet_hours_start_button, window.startHour, window.startMinute))
+            }
+            Button(
+                onClick = {
+                    TimePickerDialog(
+                        context,
+                        { _, hour, minute -> onWindowChanged(window.copy(endHour = hour, endMinute = minute)) },
+                        window.endHour,
+                        window.endMinute,
+                        true,
+                    ).show()
+                },
+                modifier = Modifier.padding(start = 8.dp),
+            ) {
+                Text(text = stringResource(R.string.settings_quiet_hours_end_button, window.endHour, window.endMinute))
             }
         }
     }
