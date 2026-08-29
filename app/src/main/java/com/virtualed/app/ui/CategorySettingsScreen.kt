@@ -137,6 +137,10 @@ fun CategorySettingsScreen(onBack: () -> Unit) {
 /**
  * 5択のカテゴリ選択チップ行。「その他」選択時は category = null (未割り当てへ戻す) を書き込む
  * (このコンポーザブル自体のクラス doc 参照)。
+ *
+ * 選択解除は「その他」チップ経由でも可能だが、それだけでは分かりにくい (実機テストで判明) ため、
+ * 選択中のチップをもう一度タップすると未割り当てへ戻るオン/オフトグル動作も持たせる —
+ * 一般的な選択チップ UI の慣習に沿った、より発見しやすい解除手段として追加する。
  */
 @Composable
 private fun CategoryPickerRow(
@@ -157,7 +161,10 @@ private fun CategoryPickerRow(
         options.forEach { (category, label) ->
             val isSelected = selectedCategory == category
             Button(
-                onClick = { onCategorySelected(category) },
+                // 選択中のチップを再度タップすると未割り当て (null) へトグルオフする。
+                // 「その他」チップ自体は category=null なので、この式は特別扱い不要で
+                // そのまま正しく動作する。
+                onClick = { onCategorySelected(if (isSelected) null else category) },
                 colors = if (isSelected) {
                     ButtonDefaults.buttonColors()
                 } else {
