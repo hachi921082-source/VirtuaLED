@@ -236,14 +236,12 @@ too early.
 ## 13. Phone-Call Overlay Suppression
 
 The system's incoming-call full-screen intent (`Notification.Builder.setFullScreenIntent()`)
-must not be obstructed. During an active call (detected via `TelephonyManager` call state
-listener), the overlay is temporarily hidden and restored after the call ends.
-
-Note: this mechanism (explicit `TelephonyManager` call-state detection driving explicit
-hide/restore) was written against the earlier raw-overlay-window design (§1 as it stood before
-`docs/DECISIONS.md` §18). Whether it's still the right approach — versus relying on
-`FakeSleepActivity`'s own `onPause()`/`onResume()` lifecycle now that the fake-sleep surface is an
-Activity — is open; see `docs/QA.md` #15 (not yet resolved).
+must not be obstructed by the fake-sleep dot. No explicit call-state detection is needed to
+guarantee this: `FakeSleepActivity`'s own `Activity` lifecycle already handles it. Confirmed via
+real-device testing (`docs/QA.md` #15, resolved) — an answered call's own full-screen in-call
+Activity takes over the foreground, pausing `FakeSleepActivity`, which resumes automatically once
+the call ends. See `docs/plans/other/phone-call-overlay-suppression/PLAN.md` for detail; no
+`TelephonyManager`/`READ_PHONE_STATE` mechanism is implemented.
 
 ## 14. Unlock Auto-Dismiss
 
