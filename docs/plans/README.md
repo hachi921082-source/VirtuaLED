@@ -20,8 +20,8 @@ dependency-ordered file — each feature directory is self-contained and indepen
 
 | Order | Feature | Status |
 |---|---|---|
-| 1 | [`notification-detection-dot-indicator`](mvp/notification-detection-dot-indicator/PLAN.md) | Not started |
-| 2 | [`foreground-service-setup`](mvp/foreground-service-setup/PLAN.md) | Not started |
+| 1 | [`notification-detection-dot-indicator`](mvp/notification-detection-dot-indicator/PLAN.md) | Done (merged, PR #1) |
+| 2 | [`foreground-service-setup`](mvp/foreground-service-setup/PLAN.md) | Done (merged, PR #2) |
 | 3 | [`permission-onboarding`](mvp/permission-onboarding/PLAN.md) | Not started |
 | 4 | [`fake-sleep-overlay`](mvp/fake-sleep-overlay/PLAN.md) | Not started |
 | 5 | [`dismiss-and-peek-interaction`](mvp/dismiss-and-peek-interaction/PLAN.md) | Not started |
