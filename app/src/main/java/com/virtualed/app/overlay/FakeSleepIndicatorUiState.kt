@@ -4,6 +4,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
+import com.virtualed.app.category.IndicatorCategory
 
 /**
  * フェイクスリープ中の視覚的インジケーター（ドット/プレビュー）表示状態を保持する
@@ -45,13 +46,14 @@ class FakeSleepIndicatorUiState {
 }
 
 /**
- * インジケータースロット1件分の表示状態。docs/plans/mvp/fake-sleep-overlay/PLAN.md §7 のスケッチは
- * category: IndicatorCategory? も持つが、IndicatorCategory はまだ未実装の
- * docs/plans/other/category-icons-and-assets/ が所有する型のため、本フィーチャーでは
- * count/highImportance のみを定義する (category はデフォルト値付きで後から非破壊的に追加できる、
- * docs/plans/other/importance-based-sizing/PLAN.md 実装上の乖離ノート参照)。
+ * インジケータースロット1件分の表示状態。category は null の間プレーンなドット
+ * (ic_notify_dot 相当の円) を描画し、非 null なら対応するカテゴリアイコンを描画する
+ * (docs/plans/other/category-icons-and-assets/PLAN.md §5)。書き込みは
+ * FakeSleepSessionController の再計算パスが行い、単一スロット MVP では常にインデックス0の
+ * スロットのみが更新される。
  */
 data class IndicatorSlotUiState(
     val count: Int = 1,
     val highImportance: Boolean = false,
+    val category: IndicatorCategory? = null,
 )
