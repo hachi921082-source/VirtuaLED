@@ -16,9 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +32,8 @@ import androidx.lifecycle.lifecycleScope
 import com.virtualed.app.data.IndicatorColorSettings
 import com.virtualed.app.data.PendingNotificationsRepository
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 // スロットグループのドットサイズ (dp)。焼き付き防止のバウンディングボックス計算 (px 換算) と
@@ -108,12 +113,18 @@ class FakeSleepActivity : ComponentActivity() {
                 indicatorVisibleState = indicatorUiState.indicatorVisible,
                 indicatorOffsetState = indicatorUiState.indicatorOffset,
                 tintColorState = indicatorUiState.tintColor,
+                slotsState = indicatorUiState.slots,
+                blinkIntervalMsState = indicatorUiState.blinkIntervalMs,
                 onTap = { peekController.onTap() },
             )
         }
         FakeSleepActivityHolder.current = this
         FakeSleepActivityHolder.indicatorUiState = indicatorUiState
         FakeSleepActivityHolder.burnInProtector = burnInProtector
+        // indicatorUiState 登録直後の初回評価 — startSession() 時点では indicatorUiState が
+        // まだ存在しないため no-op に終わっている (docs/plans/other/importance-based-sizing/
+        // PLAN.md §6、burn-in-protection PLAN.md §4 と同様の乖離)。
+        sessionController.recomputeImportanceNow()
     }
 
     /** ドットからプレビューテキストへ、コンテンツ view を切り替える (同一 Activity インスタンス内)。 */
@@ -155,6 +166,8 @@ private fun FakeSleepContent(
     indicatorVisibleState: MutableState<Boolean>,
     indicatorOffsetState: MutableState<IntOffset>,
     tintColorState: MutableState<Color>,
+    slotsState: MutableState<List<IndicatorSlotUiState>>,
+    blinkIntervalMsState: MutableState<Long?>,
     onTap: () -> Unit,
 ) {
     val previewLines = previewLinesState.value
@@ -174,7 +187,12 @@ private fun FakeSleepContent(
         // 表示状態がそのまま復元される (docs/plans/other/auto-stop-conditions/PLAN-1-proximity.md §3)。
         if (indicatorVisible) {
             if (previewLines == null) {
-                IndicatorGroup(offsetState = indicatorOffsetState, tintColorState = tintColorState)
+                IndicatorGroup(
+                    offsetState = indicatorOffsetState,
+                    tintColorState = tintColorState,
+                    slotsState = slotsState,
+                    blinkIntervalMsState = blinkIntervalMsState,
+                )
             } else {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -194,15 +212,45 @@ private fun FakeSleepContent(
  * (docs/plans/other/multi-notification-stacking/) — MVP と同じ単一ドットを
  * オフセット付きで描画するのみ。色は tintColorState (ユーザー設定の永続化色、
  * デフォルト白) から取る (docs/plans/other/indicator-color-customization/PLAN.md §5)。
+ * 高重要度スロットは 1.5x スケールで描画し、blinkIntervalMsState が非 null の間は
+ * その間隔でオン/オフを繰り返す (docs/plans/other/importance-based-sizing/PLAN.md §6)。
  */
 @Composable
-private fun IndicatorGroup(offsetState: MutableState<IntOffset>, tintColorState: MutableState<Color>) {
+private fun IndicatorGroup(
+    offsetState: MutableState<IntOffset>,
+    tintColorState: MutableState<Color>,
+    slotsState: MutableState<List<IndicatorSlotUiState>>,
+    blinkIntervalMsState: MutableState<Long?>,
+) {
+    val slot = slotsState.value.firstOrNull() ?: IndicatorSlotUiState()
+    val blinkIntervalMs = blinkIntervalMsState.value
+
+    // ハードなオン/オフ切り替えのみ (フェード/補間は行わない — PLAN.md はそこまで要求していない)。
+    // blinkIntervalMs が変化するたびキーとして LaunchedEffect が再起動し、null になった場合は
+    // 即座に表示状態へ戻る (= 点滅しない、従来どおりの挙動)。
+    var blinkVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(blinkIntervalMs) {
+        if (blinkIntervalMs == null) {
+            blinkVisible = true
+            return@LaunchedEffect
+        }
+        while (isActive) {
+            blinkVisible = true
+            delay(blinkIntervalMs / 2)
+            blinkVisible = false
+            delay(blinkIntervalMs / 2)
+        }
+    }
+
+    val dotSizeDp = if (slot.highImportance) INDICATOR_DOT_SIZE_DP * 1.5f else INDICATOR_DOT_SIZE_DP.toFloat()
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .offset { offsetState.value }
-                .size(INDICATOR_DOT_SIZE_DP.dp)
-                .background(tintColorState.value, CircleShape),
-        )
+        if (blinkVisible) {
+            Box(
+                modifier = Modifier
+                    .offset { offsetState.value }
+                    .size(dotSizeDp.dp)
+                    .background(tintColorState.value, CircleShape),
+            )
+        }
     }
 }
