@@ -10,10 +10,13 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.virtualed.app.R
 import com.virtualed.app.autostop.ProximityMonitor
+import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.DndState
 import com.virtualed.app.data.FeatureEnabledState
+import com.virtualed.app.data.KeywordRegistry
 import com.virtualed.app.data.PendingNotificationsRepository
+import com.virtualed.app.importance.ImportanceResolver
 
 /**
  * フェイクスリープセッションの状態機械。VirtuaLedForegroundService が1回だけ生成し保持する。
@@ -57,6 +60,9 @@ class FakeSleepSessionController(
         createNotificationChannel()
         // 保留通知が0件になった時点でセッション中なら即終了する (docs/DECISIONS.md §16)。
         pendingRepo.setOnBecameEmptyListener { if (sessionActive) endSession() }
+        // 保留通知の内容が変化するたび (2件目/3件目の到着等も含む) 重要度を再評価する
+        // (docs/plans/other/importance-based-sizing/PLAN.md §6)。
+        pendingRepo.setOnChangedListener { if (sessionActive) recomputeImportance() }
     }
 
     fun onScreenOff() {
@@ -75,6 +81,10 @@ class FakeSleepSessionController(
         // FakeSleepActivity を起動するのはこの後) ため、実際には常に no-op — 実際の起動通知は
         // FakeSleepActivity.onCreate() が直接行う (docs/plans/other/burn-in-protection/PLAN.md §4)。
         FakeSleepActivityHolder.burnInProtector?.onSessionActiveChanged(true)
+        // burnInProtector と同じ理由でここでは indicatorUiState もまだ null のことが多く
+        // no-op となる — 実際の初回評価は FakeSleepActivity.onCreate() の recomputeImportanceNow()
+        // が行う (docs/plans/other/importance-based-sizing/PLAN.md §6)。
+        recomputeImportance()
         withScreenOffProcessingGuard {
             val fullScreenPendingIntent = PendingIntent.getActivity(
                 context,
@@ -99,6 +109,27 @@ class FakeSleepSessionController(
         FakeSleepActivityHolder.current?.finish()
         proximityMonitor.stop()
         sessionActive = false
+    }
+
+    // FakeSleepActivity.onCreate() から、indicatorUiState 登録直後の初回評価用に呼び出される
+    // 公開エントリーポイント (docs/plans/other/importance-based-sizing/PLAN.md §6)。
+    fun recomputeImportanceNow() = recomputeImportance()
+
+    // 保留通知のいずれかが登録キーワードにマッチするか判定し、結果を
+    // FakeSleepActivityHolder.indicatorUiState (存在すれば) へ書き込む。indicatorUiState が
+    // まだ存在しない場合 (FakeSleepActivity 未起動) は no-op — 実際の初回評価は
+    // recomputeImportanceNow() 経由で FakeSleepActivity.onCreate() が行う。
+    private fun recomputeImportance() {
+        val uiState = FakeSleepActivityHolder.indicatorUiState ?: return
+        val highImportance = ImportanceResolver.isHighImportance(pendingRepo.snapshot()) { pkg ->
+            KeywordRegistry.keywordsCache[pkg] ?: emptyList()
+        }
+        uiState.blinkIntervalMs.value = if (highImportance) BlinkSettings.intervalMsCached else null
+        // 集約ルール (PLAN.md §4): 単一スロットの MVP では常にインデックス0のスロットへ書き込む。
+        // multi-notification-stacking 実装時にスロット単位の判定へ置き換わる (同 PLAN.md §6)。
+        uiState.slots.value = uiState.slots.value.mapIndexed { index, slot ->
+            if (index == 0) slot.copy(highImportance = highImportance) else slot
+        }
     }
 
     private fun withScreenOffProcessingGuard(block: () -> Unit) {
