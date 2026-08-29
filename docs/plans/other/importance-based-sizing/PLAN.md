@@ -26,8 +26,8 @@ aggregate-level rule, consistent with the single-indicator simplification MVP al
 - `com.virtualed.app.data.BlinkSettings` — DataStore-backed blink interval.
 - `com.virtualed.app.importance.ImportanceResolver` — pure function, no persistence.
 - `com.virtualed.app.ui.KeywordSettingsScreen.kt` — Compose UI for keyword registration.
-- Extends `OverlayIndicatorView` (`docs/plans/mvp/fake-sleep-overlay/PLAN.md`) with a
-  size/blink render mode.
+- Writes `FakeSleepIndicatorUiState.blinkIntervalMs` and the relevant slot's `highImportance` flag
+  (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7) — does not define a new indicator view.
 
 ## 2. Data Structures
 
@@ -93,50 +93,44 @@ Settings UI: a slider bound to `BlinkSettings.getIntervalMs()`/`setIntervalMs()`
 
 ## 6. Render Integration
 
-Added to `OverlayIndicatorView` (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §5):
+Writes `FakeSleepIndicatorUiState` (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7):
 
 ```kotlin
-fun setImportance(highImportance: Boolean, blinkIntervalMs: Long) {
-    if (highImportance) {
-        scaleX = 1.5f; scaleY = 1.5f
-        startBlink(blinkIntervalMs)
-    } else {
-        scaleX = 1f; scaleY = 1f
-        stopBlink()
+fun applyImportance(uiState: FakeSleepIndicatorUiState, highImportance: Boolean, intervalMs: Long) {
+    uiState.blinkIntervalMs.value = if (highImportance) intervalMs else null
+    // Aggregate rule (§4): before docs/plans/other/multi-notification-stacking/ exists there is
+    // exactly one slot (the MVP default), so this marks that slot. Once multi-notification-stacking
+    // lands, per-slot resolution supersedes this single-slot write (see that plan's §7).
+    uiState.slots.value = uiState.slots.value.mapIndexed { index, slot ->
+        if (index == 0) slot.copy(highImportance = highImportance) else slot
     }
-}
-
-private var blinkAnimator: ObjectAnimator? = null
-
-private fun startBlink(intervalMs: Long) {
-    stopBlink()
-    blinkAnimator = ObjectAnimator.ofFloat(this, "alpha", 1f, 0f, 1f).apply {
-        duration = intervalMs
-        repeatCount = ValueAnimator.INFINITE
-        start()
-    }
-}
-
-private fun stopBlink() {
-    blinkAnimator?.cancel()
-    blinkAnimator = null
-    alpha = 1f
 }
 ```
+
+Rendering (owned by `docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7's `IndicatorGroup`/`SlotIcon`
+composables, not this plan): a slot with `highImportance = true` renders at 1.5x scale — that part
+is per-slot. Blinking is not: `blinkIntervalMs` is a single value shared across the whole slot
+group (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7's synchronized-blink decision), so once any
+slot is high-importance, *every* currently-shown slot blinks together at that interval, including
+slots that are not themselves high-importance.
 
 Re-evaluated whenever `PendingNotificationsRepository`'s contents change while a session is active
 (new notification posted/removed) — `FakeSleepSessionController`
 (`docs/plans/mvp/fake-sleep-overlay/PLAN.md`) recomputes `ImportanceResolver.isHighImportance()` and
-calls `setImportance()` on each repository change, not just at session start.
+calls `applyImportance()` on each repository change, not just at session start.
 
 ## 7. Cross-Feature Touchpoints
 
-- Extends `docs/plans/mvp/fake-sleep-overlay/`'s `OverlayIndicatorView`; reads
+- Writes `docs/plans/mvp/fake-sleep-overlay/`'s `FakeSleepIndicatorUiState.blinkIntervalMs` and
+  each slot's `highImportance` flag (§7); reads
   `docs/plans/mvp/notification-detection-dot-indicator/`'s `PendingNotificationsRepository`.
-- Blink/size effects apply to whichever indicator is currently rendered — plain dot (MVP) or a
-  category icon (`docs/plans/other/category-icons-and-assets/`), and interact with
-  `docs/plans/other/burn-in-protection/`'s independent position-jump loop (both act on the same
-  `View`, but on different properties — scale/alpha vs. x/y — so no conflict).
+- Blink/size effects apply to whichever slot(s) are currently rendered — a plain dot (MVP default)
+  or category icons/multiple slots once `docs/plans/other/category-icons-and-assets/` and
+  `docs/plans/other/multi-notification-stacking/` are implemented.
+- Independent of `docs/plans/other/burn-in-protection/`'s reposition loop: both this plan and that
+  one write different `MutableState` fields on the same `FakeSleepIndicatorUiState` instance
+  (`blinkIntervalMs`/`slots[].highImportance` here, `indicatorOffset` there) — plain independent
+  state, not View properties, so there is nothing for the two to conflict over.
 - Does not apply during the peek-preview text state
   (`docs/plans/mvp/dismiss-and-peek-interaction/`) — blink/size only affects the Indicator Shown
   rendering.
