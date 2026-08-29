@@ -43,7 +43,10 @@ import kotlinx.coroutines.launch
 
 // スロットグループのドットサイズ (dp)。焼き付き防止のバウンディングボックス計算 (px 換算) と
 // 実際の描画サイズの両方で共有する (docs/plans/other/burn-in-protection/PLAN.md §3)。
-private const val INDICATOR_DOT_SIZE_DP = 12
+// 12dp はプレーンな円のドットとしては視認できたが、category-icons-and-assets のアイコン
+// (封筒/電話等の細かい形状) では小さすぎて判別できないと実機テストで判明したため 24dp に拡大
+// (ユーザー確認・実機調整)。
+private const val INDICATOR_DOT_SIZE_DP = 24
 
 /**
  * フェイクスリープ中に表示される全画面 Activity。
