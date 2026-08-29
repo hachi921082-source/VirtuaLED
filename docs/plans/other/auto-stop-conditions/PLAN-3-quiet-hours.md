@@ -180,3 +180,22 @@ event (with notifications still pending) will re-evaluate normally afterward.
   `FakeSleepSessionController.endSession()`.
 - Settings UI (time-window picker + enabled toggle) lives in the main settings screen alongside
   `PLAN-2-battery.md`'s threshold setting — no shared state between the two.
+
+## Implementation Deviation Notes
+
+- `QuietHoursAlarmReceiver.onReceive()` uses `goAsync()` + a `Dispatchers.Default` coroutine for
+  the DataStore read/re-arm step, instead of §4's `runBlocking` pseudocode, since `onReceive()`
+  runs on the main thread and blocking it on DataStore risks an ANR.
+- `VirtuaLedForegroundService.onCreate()` additionally calls
+  `QuietHoursScheduler(applicationContext).reschedule(QuietHoursSettings.getWindow(applicationContext))`
+  once at service startup, covering the case where the app is freshly installed and neither a
+  reboot nor a settings edit has happened yet; `reschedule()` is idempotent so this is safe
+  alongside the boot-receiver and settings-driven calls.
+- `QuietHoursSettings` defaults to `enabled = false` (window values default to 01:00-07:00 per §2's
+  example, but the feature itself starts disabled).
+- The settings UI (§8) implements the start/end time pickers with the standard
+  `android.app.TimePickerDialog` (View-based, launched via `LocalContext.current` from a Compose
+  `Button`), rather than a hand-rolled HH:mm text field.
+- `QuietHoursScheduler.reschedule()` now also syncs `QuietHoursState` to the current wall-clock
+  time relative to the window, closing a cold-start gap found via live device testing — where the
+  flag previously stayed stale until the next edge-triggered alarm fired.

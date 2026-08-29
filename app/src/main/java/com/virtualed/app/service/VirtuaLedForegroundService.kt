@@ -14,12 +14,14 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.virtualed.app.R
 import com.virtualed.app.autostop.BatteryLevelReceiver
+import com.virtualed.app.autostop.QuietHoursScheduler
 import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.KeywordRegistry
 import com.virtualed.app.data.PendingNotificationsRepository
+import com.virtualed.app.data.QuietHoursSettings
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.overlay.FakeSleepSessionController
 import com.virtualed.app.receiver.OnOffActionReceiver
@@ -98,6 +100,16 @@ class VirtuaLedForegroundService : Service() {
             )
             registerReceiver(receiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             batteryLevelReceiver = receiver
+        }
+
+        // docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §5 の追記事項 —
+        // 初回インストール後リブートなし/設定未変更のまま FGS が起動されたケースをカバーするため、
+        // サービス起動のたびに永続化済みウィンドウで再スケジュールしておく。reschedule() は
+        // 冪等 (毎回キャンセルしてから再スケジュール、または無効時はキャンセルのみ) なので、
+        // BOOT_COMPLETED や設定変更経由の呼び出しと重複しても無害。
+        serviceScope.launch {
+            val window = QuietHoursSettings.getWindow(applicationContext)
+            QuietHoursScheduler(applicationContext).reschedule(window)
         }
 
         // docs/plans/mvp/onoff-notification-toggle/PLAN.md §2 — 通知アクション/アプリ内スイッチの
