@@ -78,42 +78,6 @@ and contradictions before writing the MVP feature plans).
     category icons are out of MVP scope (MVP uses a plain dot only), so this only needs resolving
     before the category-icons feature gets its own PLAN.md.
 
-15. With the fake-sleep mechanism now `FakeSleepActivity` (an Activity) rather than a raw overlay
-    window (`docs/detailed-spec.md` §1, `docs/DECISIONS.md` §18), does §13's phone-call-overlay-
-    suppression mechanism — explicit `TelephonyManager`/`TelephonyCallback` call-state detection
-    driving an explicit hide()/restore() of the indicator's drawn content — still describe the
-    right approach, or does normal Android Activity/task-stack behavior already achieve the
-    required outcome (the incoming call's own full-screen-intent Activity taking over the
-    foreground, naturally pausing/stopping `FakeSleepActivity`, with `FakeSleepActivity` naturally
-    resuming once the call Activity finishes) with no need for any call-state detection,
-    `CallStateMonitor`, or `READ_PHONE_STATE` permission at all?
-
-    Background: `docs/plans/other/phone-call-overlay-suppression/PLAN.md`'s mechanism was carried
-    over unchanged from when the fake-sleep display was a raw `TYPE_APPLICATION_OVERLAY`
-    `WindowManager` View — a window type that sits above ordinary app windows/Activities and does
-    not automatically yield foreground to a newly-launched Activity, so an explicit "detect call,
-    hide the overlay View, restore after" step was genuinely necessary to avoid obstructing the
-    incoming-call UI. Under the current Activity-based mechanism, `FakeSleepActivity` is an
-    ordinary (if `showWhenLocked`/`turnScreenOn`) Activity, and the incoming call's own full-
-    screen-intent Activity is also an ordinary Activity launched via its own `PendingIntent` —
-    under normal Android task/window management, launching a new foreground Activity would be
-    expected to push `FakeSleepActivity` to `onPause()`/`onStop()` on its own, without needing our
-    app's cooperation. This raises real doubt about whether §13's whole call-detection/hide-
-    restore mechanism is still needed, or whether it should instead rely on `FakeSleepActivity`'s
-    own `onPause()`/`onResume()` lifecycle callbacks (in which case the entire `CallStateMonitor`
-    module, the `TelephonyCallback` listener, and the `READ_PHONE_STATE` runtime permission this
-    plan introduces could potentially be dropped entirely).
-
-    This is not confirmable purely from documentation — it depends on actual OS/OEM behavior for
-    two competing `showWhenLocked`/`turnScreenOn` full-screen Activities (ours + the phone app's),
-    exactly the kind of assumption that turned out to need real-device validation before
-    (`docs/DECISIONS.md` §18's secure-keyguard test). Blocks: whether to keep
-    `docs/plans/other/phone-call-overlay-suppression/PLAN.md`'s `TelephonyManager`-based mechanism
-    as-is, replace it with a lifecycle-callback-only approach, or validate on-device before
-    deciding — and, if `TelephonyManager` detection turns out unnecessary, whether to drop
-    `READ_PHONE_STATE` from the permission set entirely (`docs/detailed-spec.md` §2 does not
-    currently list it, since it was introduced only within this plan).
-
 16. Does an OEM's own ambient/doze wakefulness path (`PowerManager` `WAKEFULNESS_DOZING`, distinct
     from full `WAKEFULNESS_ASLEEP`) ever prevent `FakeSleepActivity`'s full-screen-intent
     notification from auto-launching over the lock screen?
@@ -139,6 +103,16 @@ and contradictions before writing the MVP feature plans).
     retry) or whether this was purely a test-harness artifact. Not a blocker — MVP integration test
     passed once retried under normal (cable-free-equivalent) conditions.
 
+    **Reproduced a second time** later in the same session (unrelated `phone-call-overlay-suppression`
+    ad hoc test, §15's real-device evidence), again with the device in `WAKEFULNESS_DOZING` and
+    `FakeSleepActivity` never launching. This time the fix was app force-stop + relaunch **without**
+    unplugging the USB cable, and it worked — every screen-off cycle for the rest of the session
+    launched `FakeSleepActivity` correctly. This weakens the USB-cable-flicker hypothesis (the fix
+    worked without touching the cable) and points more toward some in-app or in-process state (stale
+    receiver registration, a wedged `PendingNotificationsRepository`/session-controller state, etc.)
+    that a fresh process clears — still not conclusively isolated, but "kill and relaunch the app"
+    is now a confirmed reliable workaround either way.
+
 ### Resolved (continued)
 
 14. ~~Does the fake-sleep mechanism work on devices with a secure lock screen (PIN/pattern/
@@ -153,3 +127,20 @@ and contradictions before writing the MVP feature plans).
     `docs/DECISIONS.md` §18 for full detail, and `docs/detailed-spec.md` §1/§2/§16/§17 for the
     updated spec. Not yet re-confirmed on the Sharp AQUOS sense9 (the project's other test device)
     — worth doing opportunistically, not currently a blocker.
+
+15. ~~With the fake-sleep mechanism now `FakeSleepActivity` (an Activity) rather than a raw overlay
+    window, does §13's phone-call-overlay-suppression mechanism (explicit `TelephonyManager`/
+    `TelephonyCallback` call-state detection) still describe the right approach, or does normal
+    Android Activity/task-stack behavior already achieve the required outcome with no call-state
+    detection needed?~~ Resolved via real-device test on arrows We2 Plus (`M06`): a real call was
+    placed while `FakeSleepActivity` was showing the dot over a secure lock. **Ringing**: the
+    incoming-call banner (reject/answer buttons) overlaid the dot without taking foreground —
+    `FakeSleepActivity` stayed `topResumedActivity`/focused — but the reject button was still
+    tappable and worked. **Answered**: a genuine full-screen in-call Activity *did* take over the
+    foreground (confirmed visually), and once the call ended, `FakeSleepActivity` resumed
+    automatically (same `ActivityRecord`) with no app-side code involved — ordinary Android
+    Activity/task lifecycle handled the exact scenario `phone-call-overlay-suppression` exists to
+    prevent. Conclusion: drop the plan's `TelephonyManager`/`CallStateMonitor`/`READ_PHONE_STATE`
+    mechanism and rely on `FakeSleepActivity`'s own `onPause()`/`onResume()` instead; revise
+    `docs/plans/other/phone-call-overlay-suppression/PLAN.md` accordingly before its
+    `reviewer-lite` cross-consistency pass.
