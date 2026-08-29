@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 汎用のプレースホルダー・ランチャーアイコン (単純な円形ドット)。
+     最終的なアプリアイコンは docs/HANDOFF.md に別途未決事項として記録されている。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/white"
+        android:pathData="M54,34m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0" />
+</vector>
