@@ -9,6 +9,8 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.virtualed.app.R
+import com.virtualed.app.data.DndSettings
+import com.virtualed.app.data.DndState
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.PendingNotificationsRepository
 
@@ -50,6 +52,8 @@ class FakeSleepSessionController(
     fun onScreenOff() {
         // feature OFF 中はゲーティングごと無効化する (docs/plans/mvp/onoff-notification-toggle/PLAN.md §2)。
         if (!FeatureEnabledState.isEnabled()) return
+        // DND 中は隠す設定が有効かつ現在 DND 中ならゲーティングごと無効化する (docs/plans/other/dnd-handling/PLAN.md §5)。
+        if (DndSettings.hideDuringDndCached && DndState.isActive()) return
         if (pendingRepo.isEmpty()) return // ゲーティング判定 (§1 step 2) — 端末は通常通りスリープする
         startSession()
     }
