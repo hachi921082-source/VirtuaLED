@@ -16,8 +16,10 @@
 10. Feature 6 Progress and MVP Completion (Follow-Up Session)
 11. MVP Integration Test and Pre-`other/`-Tier Cleanup (Follow-Up Session)
 12. `other/`-Tier Architecture Fix and Implementation Order (Follow-Up Session)
-13. Still Open
-14. Recommended Next Step
+13. `other/`-Tier Implementation Begins: dnd-handling, auto-stop-battery, auto-stop-proximity
+    (Follow-Up Session)
+14. Still Open
+15. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -567,17 +569,97 @@ icons first and having to re-verify later. Feature 10 is last by its own plan's 
 
 No new `docs/QA.md` entries were raised by this session's `other/`-tier work.
 
-## 13. Still Open
+## 13. `other/`-Tier Implementation Begins: dnd-handling, auto-stop-battery, auto-stop-proximity (Follow-Up Session)
 
-- **`other/`-tier build order** (new, §12): the recommended order is `dnd-handling` →
-  `auto-stop-conditions`/battery → `auto-stop-conditions`/proximity → `burn-in-protection` →
-  `indicator-color-customization` → `importance-based-sizing` → `auto-stop-conditions`/quiet-hours →
-  `category-icons-and-assets` → `multi-notification-stacking` → `localization-additional-languages`.
-  Not a hard requirement (`docs/plans/README.md` still says "no strict sequencing"), but following
-  it avoids rework at two specific coupling points: proximity/burn-in-protection's shared
-  callback-wiring point, and multi-notification-stacking being more meaningful to build/test once
+This session opened by reading the previous handoff, then implemented the first three `other/`-tier
+features in the recommended order from §12: `dnd-handling` → `auto-stop-conditions`/battery →
+`auto-stop-conditions`/proximity. Same branch/implement (`developer-lite`)/review
+(`reviewer-lite`)/PR flow established for the MVP features (§5-§10), branches named
+`feature/<feature-name>` (not `feature/mvp-<feature-name>`, per the `other/`-tier naming convention
+already recorded in earlier handoffs).
+
+**Housekeeping before the first PR**: `master` was 17 commits ahead of `origin/master` (all of the
+previous session's MVP-integration-test and `other/`-tier-review work, §11/§12, had never been
+pushed). Flagged to the user before creating `dnd-handling`'s PR (an unpushed `master` would have
+made that PR's GitHub diff show all 27 commits instead of just the new feature's 10) — the user
+chose to push `master` first, which was done, then feature-branch pushes/PRs proceeded normally for
+the rest of this session.
+
+**`dnd-handling`** (branch `feature/dnd-handling`, PR #8, merged): extends the existing
+`NotificationSyncListenerService` with `onListenerConnected()`/`onInterruptionFilterChanged()` to
+track DND state (`DndState`, in-memory singleton) and a DataStore-backed "hide during DND" toggle
+(`DndSettings`, default `true`). Adds a gating guard to `FakeSleepSessionController.onScreenOff()`
+— composed alongside the existing `FeatureEnabledState`/pending-empty checks, not replacing them
+(the exact failure mode this project has been burned by before, §3). No dedicated settings screen
+exists yet, so the toggle was added inline to `MainSwitchScreen`. `reviewer-lite` approved; found
+one non-blocking finding — `VirtuaLedForegroundService.onCreate()` launches the DataStore cache
+refresh fire-and-forget (not awaited), so a screen-off arriving before that read completes uses the
+still-default cached value for one event. Logged as `docs/QA.md` #17, not fixed immediately (low
+severity — only visible if the user deviated from the default toggle value).
+
+**`auto-stop-conditions`/battery** (branch `feature/auto-stop-battery`, PR #9, merged):
+`BatteryThresholdSettings` (DataStore Int, 1-100%, default 20) and `BatteryLevelReceiver` (sticky
+`ACTION_BATTERY_CHANGED`, registered/unregistered in `VirtuaLedForegroundService`), calling
+`stopSelf()` on trigger — confirmed by `reviewer-lite` to be the same full-stop path as the
+in-app-switch-OFF (`onoff-notification-toggle`), correctly distinct from the notification-action
+pause path. A `Slider` was added to `MainSwitchScreen` alongside the DND row. `reviewer-lite`
+approved; found one non-blocking finding — unlike the DND toggle's `@Volatile` cached value,
+`BatteryLevelReceiver`'s threshold is captured as a plain local `val` at registration time with no
+live-refresh, so dragging the slider while the feature is already running has no effect until the
+next OFF→ON cycle. Not a plan deviation (the plan's own pseudocode never specifies re-registration
+on setting change) but a real UX inconsistency between two sibling settings — logged as
+`docs/QA.md` #18, left for a future design decision rather than fixed immediately.
+
+**`auto-stop-conditions`/proximity** (branch `feature/auto-stop-proximity`, PR #10, merged):
+`ProximityMonitor` (wraps `SensorManager`/`TYPE_PROXIMITY`, safely no-ops on devices without the
+sensor), started/stopped alongside `FakeSleepSessionController.startSession()`/`endSession()`. A
+significant discovery here: `FakeSleepIndicatorUiState` — the 5-property visual extension surface
+(`slots`/`tintColor`/`blinkIntervalMs`/`indicatorOffset`/`indicatorVisible`) that §12's
+architecture-fix session had documented in `docs/DECISIONS.md` §20 and
+`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7 — had actually **never been coded**; that session
+only rewrote plan *documents* to describe the intended surface, not the class itself. This feature
+is the first to actually need `indicatorVisible`, so `developer-lite` implemented
+`FakeSleepIndicatorUiState` now, deliberately scoped to just that one property (not all 5), reasoning
+that building the other 4 with no consumer yet would be exactly the speculative-code pattern this
+project's conventions discourage. This is a visibility-suspend only — confirmed by `reviewer-lite`
+that the proximity callback touches only `indicatorVisible`, never `sessionActive`, the `WakeLock`
+guard, or pending-notification tracking, and that both the dot and preview-text states (not just the
+dot) are gated, with `previewLinesState` itself untouched (whatever was showing reappears unchanged
+on uncover). `reviewer-lite` approved with no blocking issues, only two informational notes for
+whoever implements `burn-in-protection` next: (a) that plan's own §4 already anticipates extending
+this same `ProximityMonitor` callback with `burnInProtector.onProximityCoveredChanged(covered)` —
+confirmed real, not a gap; (b) `FakeSleepActivity`'s current render code just wraps the existing
+dot/preview `Box`/`Column` in a single `if (indicatorVisible)` rather than the `IndicatorGroup`/
+`SlotIcon` composable shape `fake-sleep-overlay/PLAN.md` §7 sketches — whoever adds `slots`/
+`tintColor` will need to introduce that structure fresh.
+
+**Docs updated along the way**: `docs/QA.md` #17 and #18 added (see above); `docs/plans/README.md`'s
+"Other Features" list now shows all three of these sub-plans as done with their PR numbers, and two
+previously-stale "PR pending" statuses (`dnd-handling`, battery) were corrected to their actual
+merged PR numbers once each successive PR landed. `docs/HANDOFF.md` (this file) updated at the
+user's request ("引き継いで" — hand off) rather than mid-session, so all three features' progress is
+recorded together in this one section instead of three separate ones.
+
+## 14. Still Open
+
+- **`other/`-tier build order** (§12, unchanged except the first 3 of 10 are now done): the
+  remaining recommended order is `burn-in-protection` → `indicator-color-customization` →
+  `importance-based-sizing` → `auto-stop-conditions`/quiet-hours → `category-icons-and-assets` →
+  `multi-notification-stacking` → `localization-additional-languages`. Not a hard requirement
+  (`docs/plans/README.md` still says "no strict sequencing"), but following it avoids rework at two
+  specific coupling points: proximity/burn-in-protection's shared callback-wiring point (now
+  especially relevant since proximity, §13, is already merged and its exact callback site
+  documented), and multi-notification-stacking being more meaningful to build/test once
   category-icons-and-assets and importance-based-sizing already exist.
-
+- **`docs/QA.md` #17** (new, §13) — a narrow, non-blocking DND-cache-refresh race on service start;
+  see §13 above for detail. Not a blocker.
+- **`docs/QA.md` #18** (new, §13) — the battery-threshold slider doesn't live-refresh while the
+  service is already running; see §13 above for detail. Not a blocker, but unresolved design
+  question (accept as-is, or add a live-refresh path mirroring `DndSettings`'s pattern).
+- **`FakeSleepIndicatorUiState`'s remaining 4 properties** (new, §13) — `slots`, `tintColor`,
+  `blinkIntervalMs`, `indicatorOffset` are still unimplemented; each gets added by the `other/`-tier
+  feature that first needs it (`burn-in-protection` needs `indicatorOffset` next). Not a blocker,
+  just tracking that the class is deliberately partial right now, not a completed surface.
 - **Package name placeholder**: `com.virtualed.app` is used throughout `docs/spec.md` and all
   `PLAN.md` files, still unconfirmed by the user — explicitly deferred (§5 above), not a blocker.
 - **Old `NO-LED` folder cleanup**: `c:\Users\m9112\vscode2\NO-LED` — status not re-checked this
@@ -605,28 +687,38 @@ No new `docs/QA.md` entries were raised by this session's `other/`-tier work.
 - **Package name placeholder**, **old `NO-LED` folder cleanup**, and **app icon** carry over
   unchanged from earlier sessions (§5/§6) — none are blockers.
 
-## 14. Recommended Next Step
+## 15. Recommended Next Step
 
-**MVP is fully complete** (§11) and the `other/`-tier pre-implementation cross-consistency review
-and architecture fix are also done (§12) — `docs/plans/other/` is now internally consistent and
-ready to implement against the real `FakeSleepIndicatorUiState` surface.
+**MVP is fully complete** (§11), the `other/`-tier pre-implementation cross-consistency review and
+architecture fix are done (§12), and the first 3 of 10 `other/`-tier features are now implemented,
+reviewed, and merged (§13): `dnd-handling` (PR #8), `auto-stop-conditions`/battery (PR #9),
+`auto-stop-conditions`/proximity (PR #10).
 
-1. Start `other/`-tier implementation with `dnd-handling` (§12's recommended order, table above) —
-   the simplest feature, self-contained, no new permissions/components, validates the
-   already-established "extend the gating check" pattern before moving to features with more moving
-   parts. Follow the same branch/implement (`developer-lite`)/review (`reviewer-lite`)/PR flow
-   established for the MVP features (§5/§6/§7/§8/§9/§10).
-2. When implementing `auto-stop-conditions`'s proximity (`PLAN-1-proximity.md`) and
-   `burn-in-protection` (recommended order positions 3-4, §12), do them close together — they share
-   a callback-wiring point (`BurnInProtector.onProximityCoveredChanged()`) that neither plan's own
-   file fully spells out who constructs and wires; implementing them back-to-back avoids having to
-   revisit the first one's code once the second is built.
+1. Implement `burn-in-protection` next (§12/§14's recommended order, position 4) — it needs
+   `ProximityMonitor`'s callback (already wired in `FakeSleepSessionController.kt`, §13) extended
+   with its own `onProximityCoveredChanged()` call per its own PLAN.md §4, and needs to add
+   `indicatorOffset` to `FakeSleepIndicatorUiState` (currently only holding `indicatorVisible`, §13)
+   — introducing whatever composable structure (`IndicatorGroup`/`SlotIcon`-shaped, per
+   `fake-sleep-overlay/PLAN.md` §7) `FakeSleepActivity`'s render code needs for that, since the
+   current render code is just a plain `if (indicatorVisible)` wrap with no such structure yet.
+   Follow the same branch (`feature/burn-in-protection`)/implement (`developer-lite`)/review
+   (`reviewer-lite`)/PR flow used for §13's three features.
+2. After `burn-in-protection`, continue down §12/§14's recommended order:
+   `indicator-color-customization` → `importance-based-sizing` →
+   `auto-stop-conditions`/quiet-hours → `category-icons-and-assets` →
+   `multi-notification-stacking` → `localization-additional-languages`.
 3. `docs/QA.md` #13 (category mapping mechanism) needs resolving before `category-icons-and-assets`
    provides real product value (it can ship behind an always-`OTHER` stub without resolving #13, per
    that plan's own §4, but stays cosmetically inert until then) — §12's recommended order places
-   this resolution alongside step 8 (`category-icons-and-assets`), not any earlier.
+   this resolution alongside that feature, not any earlier.
 4. Resolve the package name placeholder before any public release is pursued (not urgent now,
    §5/§6).
-5. When a `gh pr merge` gets blocked going forward, apply the workflow preference from §8/§9/§10:
-   ask via `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than
-   retrying `gh pr merge` itself — this has now succeeded cleanly for PRs #4, #5, #6, and #7.
+5. `docs/QA.md` #17 and #18 (§13, both new, both non-blocking) are worth a design decision at some
+   point — whether to fix the narrow DND-cache-refresh race and the battery-threshold live-refresh
+   gap, or accept both as documented behavior — but neither blocks further `other/`-tier
+   implementation.
+6. When a `gh pr merge` gets blocked, apply the workflow preference from §8/§9/§10: ask via
+   `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than retrying
+   `gh pr merge` itself. Note: this session's three PRs (#8, #9, #10) all merged cleanly via
+   `gh pr merge` on the first attempt — no blocks occurred, so this preference simply didn't need to
+   be exercised this time.
