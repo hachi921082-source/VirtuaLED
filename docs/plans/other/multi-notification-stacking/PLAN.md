@@ -23,22 +23,29 @@ coordinate hit-testing is added — tap handling remains exactly as
 
 ## 1. Module Structure
 
-- `com.virtualed.app.overlay.IndicatorSlot` — data model for one rendered icon slot.
-- `com.virtualed.app.overlay.IndicatorSlotBuilder` — groups pending notifications into slots.
-- `com.virtualed.app.overlay.MultiIndicatorContainerView` — new `View` (`FrameLayout` holding up to
-  4 `ImageView`s), replaces the single dot/icon `View` used by
-  `docs/plans/mvp/fake-sleep-overlay/PLAN.md` §5 during Indicator Shown.
+- `com.virtualed.app.overlay.IndicatorSlotBuilder` — groups pending notifications into slots and
+  writes the result to `FakeSleepIndicatorUiState.slots`
+  (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7). This plan does not define its own parallel slot
+  data class or a `View`-based container — see §2.
 - `com.virtualed.app.data.CountBadgeSettings` — DataStore-backed toggle, default `false`.
 
 ## 2. Data Structures
 
+`IndicatorSlotUiState` is defined once, by `docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7 — this
+plan does not redefine it:
+
 ```kotlin
-data class IndicatorSlot(
-    val category: IndicatorCategory, // docs/plans/other/category-icons-and-assets/, or OTHER/dot if not yet built
-    val count: Int,       // notifications collapsed into this slot
-    val isOverflow: Boolean, // true only for the collapsed 5th+ slot
+data class IndicatorSlotUiState(
+    val category: IndicatorCategory? = null,
+    val count: Int = 1,
+    val highImportance: Boolean = false,
 )
 ```
+
+A collapsed "other" slot (§3) is an ordinary `IndicatorSlotUiState` with
+`category = IndicatorCategory.OTHER` — the same value any single OTHER-category app would already
+render as, distinguished only by its (summed) `count` (see `docs/DECISIONS.md` §20 for why this
+plan does not carry its own separate overflow flag).
 
 ## 3. Grouping and Overflow Logic
 
@@ -49,14 +56,14 @@ Beyond 4 distinct-app slots, the remainder collapse into one "other" overflow sl
 object IndicatorSlotBuilder {
     const val MAX_SLOTS = 4
 
-    fun build(pending: List<PendingNotificationInfo>, categoryMapper: CategoryMapper): List<IndicatorSlot> {
+    fun build(pending: List<PendingNotificationInfo>, categoryMapper: CategoryMapper): List<IndicatorSlotUiState> {
         val perApp = pending.groupBy { it.packageName }.map { (pkg, list) ->
-            IndicatorSlot(category = categoryMapper.resolve(pkg), count = list.size, isOverflow = false)
+            IndicatorSlotUiState(category = categoryMapper.resolve(pkg), count = list.size)
         }
         if (perApp.size <= MAX_SLOTS) return perApp
         val kept = perApp.take(MAX_SLOTS - 1)
         val overflowCount = perApp.drop(MAX_SLOTS - 1).sumOf { it.count }
-        return kept + IndicatorSlot(category = IndicatorCategory.OTHER, count = overflowCount, isOverflow = true)
+        return kept + IndicatorSlotUiState(category = IndicatorCategory.OTHER, count = overflowCount)
     }
 }
 ```
@@ -65,31 +72,36 @@ object IndicatorSlotBuilder {
 
 `docs/detailed-spec.md` §9 offers either grid split or random-placement collision detection as
 acceptable overlap-avoidance approaches. This plan uses a fixed 2x2 grid (deterministic, no
-collision math needed): each of the up to 4 slots is placed in one quadrant, indexed 0=top-left,
-1=top-right, 2=bottom-left, 3=bottom-right, relative to the container's current anchor position.
+collision math needed): each of the up to 4 slots in `FakeSleepIndicatorUiState.slots` is placed in
+one quadrant, indexed 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right, relative to the slot
+group's current anchor (`FakeSleepIndicatorUiState.indicatorOffset`,
+`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7).
 
 ```kotlin
-class MultiIndicatorContainerView(context: Context) : FrameLayout(context) {
-    private val slotViews = List(IndicatorSlotBuilder.MAX_SLOTS) { ImageView(context) }.onEach { addView(it) }
-
-    fun render(slots: List<IndicatorSlot>) {
-        slotViews.forEachIndexed { index, view ->
-            if (index < slots.size) {
-                view.visibility = View.VISIBLE
-                view.setImageResource(resolveDrawableRes(slots[index].category))
-                positionAtQuadrant(view, index) // fixed 2x2 grid offset within the container bounds
-                renderBadge(view, slots[index]) // §5
-            } else {
-                view.visibility = View.GONE
-            }
+@Composable
+private fun IndicatorGroup(uiState: FakeSleepIndicatorUiState) {
+    // Base structure (offset/visibility/blink handling) defined by
+    // docs/plans/mvp/fake-sleep-overlay/PLAN.md §7; this plan supplies the per-slot quadrant
+    // placement once more than one slot is present.
+    Box(modifier = Modifier.offset { uiState.indicatorOffset.value }) {
+        uiState.slots.value.forEachIndexed { index, slot ->
+            SlotIcon(slot = slot, modifier = Modifier.quadrantOffset(index))
         }
     }
 }
+
+private fun Modifier.quadrantOffset(index: Int): Modifier = this.offset(
+    x = if (index % 2 == 0) 0.dp else QUADRANT_GAP_DP,
+    y = if (index < 2) 0.dp else QUADRANT_GAP_DP,
+) // fixed 2x2 grid offset within the group's bounding box; a no-op when only one slot is present
 ```
 
-`docs/plans/other/burn-in-protection/`'s reposition loop moves this container's anchor as a whole
-(the same `jumpToRandomPosition()` call now applies to `MultiIndicatorContainerView` instead of a
-single dot) — the quadrant layout inside the container stays fixed relative to that anchor.
+`docs/plans/other/burn-in-protection/`'s reposition loop moves `indicatorOffset` — the group's
+single anchor — as a whole; the quadrant layout inside the group stays fixed relative to that
+anchor, unaffected by this plan (see that plan's §5).
+
+No coordinate hit-testing is added by this layout — tap handling remains position-independent,
+exactly as `docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md` §3 already defines it.
 
 ## 5. Count Badge Option
 
@@ -102,11 +114,15 @@ object CountBadgeSettings {
 ```
 
 ```kotlin
-private fun renderBadge(view: ImageView, slot: IndicatorSlot) {
-    val show = CountBadgeSettings.enabledCached && slot.count > 1
-    badgeViewFor(view).apply {
-        visibility = if (show) View.VISIBLE else View.GONE
-        text = slot.count.toString()
+@Composable
+private fun SlotIcon(slot: IndicatorSlotUiState, modifier: Modifier) {
+    // Renders slot's category icon (or plain dot if category == null), tinted by
+    // FakeSleepIndicatorUiState.tintColor and blinking per FakeSleepIndicatorUiState.blinkIntervalMs
+    // (docs/plans/other/category-icons-and-assets/PLAN.md §5,
+    // docs/plans/other/indicator-color-customization/PLAN.md §5,
+    // docs/plans/other/importance-based-sizing/PLAN.md §6).
+    if (CountBadgeSettings.enabledCached && slot.count > 1) {
+        // overlay a small count badge (e.g. a Text composable) in a corner of this slot
     }
 }
 ```
@@ -116,31 +132,36 @@ Settings toggle: "Show notification count badge," default OFF (per `docs/detaile
 
 ## 6. Render Integration
 
-Replaces `OverlayWindowManager.showDot()`/`showCategoryIcon()`
-(`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §5, `docs/plans/other/category-icons-and-assets/PLAN.md`
-§5) with:
-
 ```kotlin
-fun showIndicators(slots: List<IndicatorSlot>) {
-    multiIndicatorContainerView.render(slots)
+fun updateIndicatorSlots(
+    uiState: FakeSleepIndicatorUiState,
+    pending: List<PendingNotificationInfo>,
+    categoryMapper: CategoryMapper,
+) {
+    uiState.slots.value = IndicatorSlotBuilder.build(pending, categoryMapper)
 }
 ```
 
 Recomputed via `IndicatorSlotBuilder.build()` whenever
 `docs/plans/mvp/notification-detection-dot-indicator/`'s `PendingNotificationsRepository` changes
 while `OverlayUiState.INDICATOR_SHOWN` is active — same recompute trigger point already established
-by `docs/plans/other/importance-based-sizing/PLAN.md` §6 for size/blink.
+by `docs/plans/other/importance-based-sizing/PLAN.md` §6 for blink/size.
 
 ## 7. Cross-Feature Touchpoints
 
-- Replaces the single-icon render path from `docs/plans/mvp/fake-sleep-overlay/` and
-  `docs/plans/other/category-icons-and-assets/` — those plans' single-icon logic becomes the
-  `MAX_SLOTS == 1` degenerate case once this plan lands.
+- Writes `docs/plans/mvp/fake-sleep-overlay/`'s `FakeSleepIndicatorUiState.slots` (§7), replacing
+  that plan's single-slot MVP default and
+  `docs/plans/other/category-icons-and-assets/`'s single-slot `applyCategory()` helper — both
+  become the `MAX_SLOTS == 1` degenerate case once this plan lands.
 - Does not alter `docs/plans/mvp/dismiss-and-peek-interaction/`'s tap-handling or preview-text
   logic — both remain position-independent and app-agnostic exactly as already specified there.
-- `docs/plans/other/burn-in-protection/`'s reposition loop now moves the whole slot container, not
-  a single dot (see §4).
-- `docs/plans/other/importance-based-sizing/`'s size/blink effect, once combined with this plan,
-  applies per-slot (a slot whose notifications include a keyword match renders at 1.5x/blinking;
-  others in the same group render normally) — noted here as the natural extension, not yet detailed
-  as a separate function since it only matters once both features are implemented together.
+- `docs/plans/other/burn-in-protection/`'s reposition loop already moves the whole slot group via
+  the single `indicatorOffset` anchor (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7) — no change
+  needed on that plan's part when this plan lands; the quadrant layout (§4 above) stays fixed
+  relative to wherever that anchor currently is.
+- `docs/plans/other/importance-based-sizing/`'s effect, once combined with this plan, applies
+  differently per property: the 1.5x scale is per-slot (only the slot(s) whose notifications match
+  a registered keyword enlarge), but blinking is **not** per-slot — `blinkIntervalMs` is a single
+  value shared across the whole group (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7's
+  synchronized-blink decision), so once any slot is high-importance, every currently-shown slot
+  blinks together, not just the matching one.
