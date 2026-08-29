@@ -81,6 +81,12 @@ group moves as one anchor (§4 of that plan). Instant jump: no `Animatable`/inte
 `indicatorOffset` — the new value is applied directly, and Compose recomposes at the new position on
 the next frame, per the fixed "instant jump" style (`docs/DECISIONS.md` §13).
 
+**Implementation note (deviation from the sketch above)**: `BurnInProtector` is a plain non-Compose
+class with no `Density` access, so `SLOT_GROUP_SIZE_PX` cannot be a self-contained constant computed
+inside the class. It is instead a `slotGroupSizePx: Int` constructor parameter, computed by
+`FakeSleepActivity` at construction time from its dot-size constant (`INDICATOR_DOT_SIZE_DP = 12`)
+via `resources.displayMetrics.density`, and passed in alongside `screenBoundsPx`.
+
 ## 4. Session Lifecycle Integration
 
 `BurnInProtector` runs exactly when the indicator slot group is actually being drawn on screen —
@@ -122,6 +128,28 @@ burnInProtector.onProximityCoveredChanged(covered)
 
 `start()`/`stop()` themselves are unchanged from §2 (idempotent via the existing `running` guard) —
 `recompute()` is the single place that decides which one to call.
+
+**Implementation note (deviation from the call sites above)**: `BurnInProtector` is instantiated
+per `FakeSleepActivity` instance (constructed in `onCreate()`, alongside `indicatorUiState`, and
+exposed via `FakeSleepActivityHolder.burnInProtector` following the same hand-off pattern as
+`indicatorUiState`/`sessionController`) rather than as a long-lived field on
+`FakeSleepSessionController`, because it needs `screenBoundsPx`/`slotGroupSizePx` derived from the
+Activity's `WindowManager`/`Density`. Consequence: `FakeSleepSessionController.startSession()`'s
+`FakeSleepActivityHolder.burnInProtector?.onSessionActiveChanged(true)` call is always a no-op in
+practice — the notification is posted before the OS has launched `FakeSleepActivity`, so
+`burnInProtector` does not exist yet at that point. The actual activation happens directly in
+`FakeSleepActivity.onCreate()`, which calls `burnInProtector.onSessionActiveChanged(true)` right
+after constructing it (the Activity instance and the session are 1:1, matching
+`PeekInteractionController`'s own `uiState` initialization assumption). `endSession()`'s
+`onSessionActiveChanged(false)` call is unchanged and does have effect, since the Activity (and
+therefore `burnInProtector`) still exists when `endSession()` runs. `FakeSleepActivity.onDestroy()`
+also calls `onSessionActiveChanged(false)` as a backstop for the Activity-destroyed-first path.
+
+**Implementation note (`PeekInteractionController` wiring, unspecified above)**:
+`PeekInteractionController` gains an additional constructor parameter,
+`onUiStateChanged: (OverlayUiState) -> Unit = {}`, invoked right after each of its two `uiState`
+reassignments (`onTap()`'s `INDICATOR_SHOWN` branch, `onPreviewTimeout()`'s reversion branch).
+`FakeSleepActivity.onCreate()` passes `{ state -> burnInProtector.onUiStateChanged(state) }`.
 
 ## 5. Cross-Feature Touchpoints
 
