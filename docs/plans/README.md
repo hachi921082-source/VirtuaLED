@@ -91,7 +91,14 @@ the `other/` tier in this order:
   happens in `FakeSleepActivity.onCreate()`, documented as a deviation in that plan's file); the
   indicator sits at `(0,0)` for the first ~4s of each session/rotation before the first jump
   (matches the plan's own pseudocode, not a defect).
-- [`importance-based-sizing`](other/importance-based-sizing/PLAN.md)
+- [`importance-based-sizing`](other/importance-based-sizing/PLAN.md) — Done (implemented,
+  reviewed, merged PR #13). Adds `KeywordRegistry`/`BlinkSettings` (DataStore, synchronous caches
+  mirroring `DndSettings`'s pattern), `ImportanceResolver` (NFKC/case-normalized substring match),
+  and a new `KeywordSettingsScreen` (installed-app picker + per-app keyword add/remove, reached via
+  a boolean-gated screen swap — no navigation library). First feature to code
+  `FakeSleepIndicatorUiState.slots`/`blinkIntervalMs` (scoped to `count`/`highImportance` only,
+  `category` deferred to `category-icons-and-assets`). One review-found defect (keyword-cache
+  dedup drift) was fixed before merge.
 - `auto-stop-conditions` — split into three independent sub-plans:
   - [`PLAN-1-proximity.md`](other/auto-stop-conditions/PLAN-1-proximity.md) — Done (implemented,
     reviewed, merged PR #10). This is the first feature to actually implement
