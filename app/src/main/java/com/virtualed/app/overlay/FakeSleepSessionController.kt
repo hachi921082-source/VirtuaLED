@@ -42,12 +42,13 @@ class FakeSleepSessionController(
     // isHeld による二重取得ガードのため、フィールドとして保持する (§4)。
     private var wakeLock: PowerManager.WakeLock? = null
 
-    // 近接センサーによる一時的な描画抑止のみを行う。WakeLock・保留通知トラッキング・
+    // 近接センサーによる一時的な描画抑止を行う。WakeLock・保留通知トラッキング・
     // セッション状態には影響しない (docs/plans/other/auto-stop-conditions/PLAN-1-proximity.md §3)。
-    // 将来的には burn-in-protection の再配置ループもこの被覆状態に連動して一時停止/再開する
-    // 想定だが、その機能自体は未実装のためここでは何も呼び出さない (docs/DECISIONS.md §20)。
+    // burnInProtector の再配置ループもこの被覆状態に連動して一時停止/再開する
+    // (docs/plans/other/burn-in-protection/PLAN.md §4、docs/DECISIONS.md §20)。
     private val proximityMonitor = ProximityMonitor(context) { covered ->
         FakeSleepActivityHolder.indicatorUiState?.indicatorVisible?.value = !covered
+        FakeSleepActivityHolder.burnInProtector?.onProximityCoveredChanged(covered)
     }
 
     init {
@@ -70,6 +71,10 @@ class FakeSleepSessionController(
     private fun startSession() {
         sessionActive = true
         proximityMonitor.start()
+        // burnInProtector はこの時点ではまだ存在しない (full-screen-intent 経由で OS が
+        // FakeSleepActivity を起動するのはこの後) ため、実際には常に no-op — 実際の起動通知は
+        // FakeSleepActivity.onCreate() が直接行う (docs/plans/other/burn-in-protection/PLAN.md §4)。
+        FakeSleepActivityHolder.burnInProtector?.onSessionActiveChanged(true)
         withScreenOffProcessingGuard {
             val fullScreenPendingIntent = PendingIntent.getActivity(
                 context,
@@ -90,6 +95,7 @@ class FakeSleepSessionController(
 
     fun endSession() {
         NotificationManagerCompat.from(context).cancel(FAKE_SLEEP_NOTIFICATION_ID) // 既に消えていても no-op
+        FakeSleepActivityHolder.burnInProtector?.onSessionActiveChanged(false)
         FakeSleepActivityHolder.current?.finish()
         proximityMonitor.stop()
         sessionActive = false
