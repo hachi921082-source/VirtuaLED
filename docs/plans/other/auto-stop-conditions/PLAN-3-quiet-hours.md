@@ -196,3 +196,6 @@ event (with notifications still pending) will re-evaluate normally afterward.
 - The settings UI (§8) implements the start/end time pickers with the standard
   `android.app.TimePickerDialog` (View-based, launched via `LocalContext.current` from a Compose
   `Button`), rather than a hand-rolled HH:mm text field.
+- `QuietHoursScheduler.reschedule()` now also syncs `QuietHoursState` to the current wall-clock
+  time relative to the window, closing a cold-start gap found via live device testing — where the
+  flag previously stayed stale until the next edge-triggered alarm fired.
