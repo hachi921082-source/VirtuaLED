@@ -18,4 +18,10 @@ object FakeSleepActivityHolder {
     // docs/plans/mvp/fake-sleep-overlay/PLAN.md §7)。other/ 階層の視覚拡張機能はここ経由で
     // 描画状態へ書き込む。
     var indicatorUiState: FakeSleepIndicatorUiState? = null
+
+    // indicatorUiState と同じタイミング (FakeSleepActivity 生成時) で1回だけ設定される。
+    // screenBoundsPx が Activity の WindowManager に依存するため indicatorUiState と同様に
+    // Activity インスタンスごとに生成し直す (docs/plans/other/burn-in-protection/PLAN.md §5)。
+    // FakeSleepSessionController はこの参照経由で焼き付き防止ループの起動条件を通知する。
+    var burnInProtector: BurnInProtector? = null
 }
