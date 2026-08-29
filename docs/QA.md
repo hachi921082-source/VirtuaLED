@@ -71,13 +71,6 @@ and contradictions before writing the MVP feature plans).
 
 ### Open
 
-13. How does an installed third-party app get mapped to one of the five indicator categories
-    (Phone/Mail/SNS/Calendar/Other — see `docs/detailed-spec.md` §3)? Is this user-assigned per
-    app (a settings screen where the user picks a category for each monitored app), or
-    auto-inferred (e.g. a hardcoded package-name-to-category table)? Not decided yet. Deferred —
-    category icons are out of MVP scope (MVP uses a plain dot only), so this only needs resolving
-    before the category-icons feature gets its own PLAN.md.
-
 16. Does an OEM's own ambient/doze wakefulness path (`PowerManager` `WAKEFULNESS_DOZING`, distinct
     from full `WAKEFULNESS_ASLEEP`) ever prevent `FakeSleepActivity`'s full-screen-intent
     notification from auto-launching over the lock screen?
@@ -157,6 +150,15 @@ and contradictions before writing the MVP feature plans).
     worth an opportunistic real-time confirmation if a device is available and cooperative.
 
 ### Resolved (continued)
+
+13. ~~How does an installed third-party app get mapped to one of the five indicator categories
+    (Phone/Mail/SNS/Calendar/Other — see `docs/detailed-spec.md` §3)? Is this user-assigned per
+    app (a settings screen where the user picks a category for each monitored app), or
+    auto-inferred (e.g. a hardcoded package-name-to-category table)?~~ Resolved — user-assigned,
+    asked directly. A settings screen lets the user assign a category to each monitored app,
+    persisted via DataStore, reusing `importance-based-sizing`'s `KeywordSettingsScreen` UI shape
+    (installed-app picker, write-through persistence, no navigation library). See
+    `docs/DECISIONS.md` §21.
 
 14. ~~Does the fake-sleep mechanism work on devices with a secure lock screen (PIN/pattern/
     password)?~~ Resolved — no, not via the originally-specified raw `TYPE_APPLICATION_OVERLAY`
