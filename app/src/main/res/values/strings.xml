@@ -7,4 +7,11 @@
     <string name="fgs_notification_title">VirtuaLED</string>
     <string name="fgs_status_on">有効</string>
     <string name="fgs_status_off">無効</string>
+
+    <!-- docs/plans/mvp/permission-onboarding/PLAN.md §3 -->
+    <string name="onboarding_intro">VirtuaLED を使うには、次の権限を許可してください</string>
+    <string name="onboarding_listener_title">通知へのアクセス</string>
+    <string name="onboarding_listener_description">未読の通知を検出するために必要です。次の画面で VirtuaLED を有効にしてください。</string>
+    <string name="onboarding_granted_label">許可済み</string>
+    <string name="onboarding_grant_button">許可する</string>
 </resources>
