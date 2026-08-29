@@ -41,15 +41,21 @@ class QuietHoursAlarmReceiver : BroadcastReceiver() {
         // 揃える)。
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
-            val window = QuietHoursSettings.getWindow(context)
-            val scheduler = QuietHoursScheduler(context)
-            val action = intent.action!!
-            if (action == QuietHoursScheduler.ACTION_QUIET_HOURS_START) {
-                scheduler.scheduleNextOccurrence(window.startHour, window.startMinute, action)
-            } else {
-                scheduler.scheduleNextOccurrence(window.endHour, window.endMinute, action)
+            // DataStore 読み出しが例外を投げても pendingResult.finish() を必ず呼ぶ —
+            // 呼ばれないまま放置すると OS に「応答しない receiver」として扱われうる
+            // (reviewer-lite 指摘、quiet-hours レビュー)。
+            try {
+                val window = QuietHoursSettings.getWindow(context)
+                val scheduler = QuietHoursScheduler(context)
+                val action = intent.action!!
+                if (action == QuietHoursScheduler.ACTION_QUIET_HOURS_START) {
+                    scheduler.scheduleNextOccurrence(window.startHour, window.startMinute, action)
+                } else {
+                    scheduler.scheduleNextOccurrence(window.endHour, window.endMinute, action)
+                }
+            } finally {
+                pendingResult.finish()
             }
-            pendingResult.finish()
         }
     }
 }
