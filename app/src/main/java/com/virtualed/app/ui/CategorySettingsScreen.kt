@@ -1,6 +1,7 @@
 package com.virtualed.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -149,7 +151,9 @@ private fun CategoryPickerRow(
         // null = 未割り当て。表示ラベルは「その他」で、明示的な OTHER 割り当てと見た目上区別しない。
         null to stringResource(R.string.category_settings_category_other),
     )
-    Row(modifier = Modifier.padding(top = 8.dp)) {
+    // 5択のラベル (日本語) 幅の合計が画面幅を超え、末尾の「その他」が画面外に出て選べなくなる
+    // ことが実機テストで判明したため、横スクロール可能にする。
+    Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
         options.forEach { (category, label) ->
             val isSelected = selectedCategory == category
             Button(
