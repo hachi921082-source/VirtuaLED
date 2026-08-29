@@ -9,6 +9,7 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.virtualed.app.R
+import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.PendingNotificationsRepository
 
 /**
@@ -47,6 +48,8 @@ class FakeSleepSessionController(
     }
 
     fun onScreenOff() {
+        // feature OFF 中はゲーティングごと無効化する (docs/plans/mvp/onoff-notification-toggle/PLAN.md §2)。
+        if (!FeatureEnabledState.isEnabled()) return
         if (pendingRepo.isEmpty()) return // ゲーティング判定 (§1 step 2) — 端末は通常通りスリープする
         startSession()
     }

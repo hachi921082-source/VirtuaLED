@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.service.VirtuaLedForegroundService
 import com.virtualed.app.ui.OnboardingScreen
@@ -119,9 +120,13 @@ fun MainSwitchScreen() {
 }
 
 // docs/plans/mvp/foreground-service-setup/PLAN.md §4 (Startup Model) の起動/停止経路。
+// ON/OFF 経路は非対称 (docs/plans/mvp/onoff-notification-toggle/PLAN.md §5) —
+// ON は FeatureEnabledState を明示的に true へ戻してから起動する (通知アクションで OFF に
+// された状態のまま残っている可能性があるため)。OFF は ACTION_STOP → stopSelf() で完全停止する。
 private fun setForegroundServiceEnabled(context: Context, enabled: Boolean) {
     val intent = Intent(context, VirtuaLedForegroundService::class.java)
     if (enabled) {
+        FeatureEnabledState.setEnabled(true) // resume, 通知アクションで OFF にされていた場合に備える
         intent.action = VirtuaLedForegroundService.ACTION_START
         ContextCompat.startForegroundService(context, intent)
     } else {
