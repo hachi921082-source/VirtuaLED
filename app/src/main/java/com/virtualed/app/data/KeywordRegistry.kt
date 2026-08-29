@@ -34,16 +34,20 @@ object KeywordRegistry {
     }
 
     suspend fun setKeywords(context: Context, packageName: String, keywords: List<String>) {
+        // DataStore 側は Set 永続化により自然に重複除去されるため、キャッシュ側も distinct() で
+        // 揃えておく — そうしないと同じキーワードの重複追加時にキャッシュと DataStore の内容が
+        // 食い違う (reviewer-lite 指摘、importance-based-sizing レビュー)。
+        val deduped = keywords.distinct()
         val key = stringSetPreferencesKey(KEY_PREFIX + packageName)
         context.keywordRegistryDataStore.edit { prefs ->
             // 空リストはエントリごと削除する — 未登録アプリと同じ「常に通常重要度」扱いになる
             // (docs/plans/other/importance-based-sizing/PLAN.md §3)。
-            if (keywords.isEmpty()) prefs.remove(key) else prefs[key] = keywords.toSet()
+            if (deduped.isEmpty()) prefs.remove(key) else prefs[key] = deduped.toSet()
         }
-        keywordsCache = if (keywords.isEmpty()) {
+        keywordsCache = if (deduped.isEmpty()) {
             keywordsCache - packageName
         } else {
-            keywordsCache + (packageName to keywords)
+            keywordsCache + (packageName to deduped)
         }
     }
 
