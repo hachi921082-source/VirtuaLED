@@ -16,6 +16,7 @@ import com.virtualed.app.data.DndState
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.KeywordRegistry
 import com.virtualed.app.data.PendingNotificationsRepository
+import com.virtualed.app.data.QuietHoursState
 import com.virtualed.app.importance.ImportanceResolver
 
 /**
@@ -70,6 +71,9 @@ class FakeSleepSessionController(
         if (!FeatureEnabledState.isEnabled()) return
         // DND 中は隠す設定が有効かつ現在 DND 中ならゲーティングごと無効化する (docs/plans/other/dnd-handling/PLAN.md §5)。
         if (DndSettings.hideDuringDndCached && DndState.isActive()) return
+        // クワイエットアワー時間帯中はゲーティングごと無効化する
+        // (docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §6)。
+        if (QuietHoursState.isActive()) return
         if (pendingRepo.isEmpty()) return // ゲーティング判定 (§1 step 2) — 端末は通常通りスリープする
         startSession()
     }
