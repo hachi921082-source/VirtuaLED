@@ -111,5 +111,9 @@ the `other/` tier in this order:
 - [`multi-notification-stacking`](other/multi-notification-stacking/PLAN.md)
 - [`localization-additional-languages`](other/localization-additional-languages/PLAN.md)
 - [`phone-call-overlay-suppression`](other/phone-call-overlay-suppression/PLAN.md)
-- [`indicator-color-customization`](other/indicator-color-customization/PLAN.md) — replaces
-  `fake-sleep-overlay`'s hardcoded white default once implemented.
+- [`indicator-color-customization`](other/indicator-color-customization/PLAN.md) — Done
+  (implemented, reviewed, merged PR #12). Replaces `fake-sleep-overlay`'s hardcoded white default
+  with `IndicatorColorSettings` (DataStore) + an inline palette/HEX picker in `MainSwitchScreen`
+  (no separate settings screen — this app has no navigation component, same convention already
+  used for the DND/battery settings). Live color changes propagate to an active session via
+  `FakeSleepActivityHolder.indicatorUiState?.tintColor` independent of persistence.
