@@ -21,10 +21,10 @@ that plan's default remains the fallback value here (§2), not a separately-main
 - `com.virtualed.app.data.IndicatorColorSettings` — DataStore-backed persisted color.
 - `com.virtualed.app.ui.ColorSettingsScreen.kt` — Compose settings screen (palette swatches + HEX
   field).
-- Extends `OverlayIndicatorView`/`MultiIndicatorContainerView` render paths
-  (`docs/plans/mvp/fake-sleep-overlay/PLAN.md`,
-  `docs/plans/other/multi-notification-stacking/PLAN.md`) with a shared tint-application helper —
-  does not define a new indicator view.
+- Writes `FakeSleepIndicatorUiState.tintColor`
+  (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7) — does not define a new indicator view; since
+  `tintColor` is a single shared `MutableState` consumed by every rendered slot, this plan needs no
+  per-slot or per-view tint-application helper.
 
 ## 2. Data Structure and Default
 
@@ -60,24 +60,24 @@ inline validation error — no persistence write on invalid input.
 ## 5. Render-Time Tint Application
 
 ```kotlin
-fun applyIndicatorTint(view: ImageView, colorArgb: Int) {
-    view.setColorFilter(colorArgb, PorterDuff.Mode.SRC_IN)
+fun applyIndicatorColor(uiState: FakeSleepIndicatorUiState, colorArgb: Int) {
+    uiState.tintColor.value = Color(colorArgb)
 }
 ```
 
-Called from every indicator render path, replacing each one's previously-hardcoded white:
-- `OverlayIndicatorView.showDot()` (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §5)
-- `OverlayIndicatorView.showCategoryIcon()` (`docs/plans/other/category-icons-and-assets/PLAN.md` §5)
-- `MultiIndicatorContainerView.render()`, per slot (`docs/plans/other/multi-notification-stacking/PLAN.md` §4)
-
-The persisted color value is read once at session start and cached in memory (refreshed on
-settings-screen save), so render calls don't need a suspend read on every frame/update. Applies
-uniformly — one color setting for all indicator display modes (simple dot and per-category icons),
-per `docs/detailed-spec.md` §19's "applies uniformly across indicator display modes."
+Called once at session start (reading the persisted color) and again whenever the settings screen
+saves a new value while a session is active — writing `tintColor` recomposes every currently
+rendered slot immediately, since `FakeSleepActivity`'s `IndicatorGroup`/`SlotIcon` composables
+(`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7) all read this single shared state. Because there is
+exactly one `tintColor` field for the whole slot group, this plan needs only one call site, not a
+separate one per render path (plain dot, category icon, or per-slot in a multi-icon layout) — it
+applies uniformly across indicator display modes by construction, per `docs/detailed-spec.md` §19.
 
 ## 6. Cross-Feature Touchpoints
 
-- Replaces `docs/plans/mvp/fake-sleep-overlay/PLAN.md`'s hardcoded white default — that plan's
-  `OverlayIndicatorView` render methods call `applyIndicatorTint()` once this feature exists.
+- Writes `docs/plans/mvp/fake-sleep-overlay/PLAN.md`'s `FakeSleepIndicatorUiState.tintColor` (§7),
+  replacing that plan's hardcoded white default.
 - Applies to `docs/plans/other/category-icons-and-assets/`'s icons and
-  `docs/plans/other/multi-notification-stacking/`'s per-slot icons identically.
+  `docs/plans/other/multi-notification-stacking/`'s per-slot icons identically, with no extra
+  wiring needed on their part — they render whatever `IndicatorSlotUiState`s are in `slots`, all
+  tinted by the one shared `tintColor` value.
