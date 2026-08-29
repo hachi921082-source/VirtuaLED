@@ -126,6 +126,22 @@ and contradictions before writing the MVP feature plans).
     against a screen-off arriving before the first `refreshCache()` completes) rather than fixed
     immediately.
 
+18. `BatteryLevelReceiver`'s threshold value is captured as a local `val` when the receiver is
+    registered in `VirtuaLedForegroundService.onCreate()`, with no live-refresh mechanism — unlike
+    `DndSettings.hideDuringDndCached`, which `setHideDuringDnd()` updates in place so a running
+    service picks up a DND-toggle change immediately. If the user drags the battery-threshold
+    slider while the feature is already running, the active `BatteryLevelReceiver` keeps using the
+    stale threshold until the feature is toggled OFF and back ON (re-running `onCreate()`).
+
+    This is not a deviation from `docs/plans/other/auto-stop-conditions/PLAN-2-battery.md` — its
+    pseudocode never specifies re-registration on a setting change, so the implementation matches
+    the plan faithfully. Found by `reviewer-lite` during that feature's review; judged non-blocking
+    (same low-severity bar as #17) but flagged as a real UX inconsistency between two sibling
+    settings that neither `docs/detailed-spec.md` §6 nor the PLAN.md resolves. Left open for a
+    design decision: either accept the "takes effect on next toggle-on" behavior as intended, or
+    add a live-refresh path (e.g. a `@Volatile` cached threshold plus a settings-save hook,
+    mirroring `DndSettings`'s pattern) — not fixed immediately.
+
 ### Resolved (continued)
 
 14. ~~Does the fake-sleep mechanism work on devices with a secure lock screen (PIN/pattern/
