@@ -142,6 +142,20 @@ and contradictions before writing the MVP feature plans).
     add a live-refresh path (e.g. a `@Volatile` cached threshold plus a settings-save hook,
     mirroring `DndSettings`'s pattern) — not fixed immediately.
 
+19. `auto-stop-conditions`/quiet-hours (`docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md`,
+    merged PR #14): the "alarm fires for real while a fake-sleep session is actively displayed →
+    session force-ends" path was verified by code review only (mirrors the already-proven
+    `NotificationSyncListenerService`/DND `endSession()` reach-in pattern exactly), not by an actual
+    timed real-time test on-device — the test device's aggressive re-lock behavior interrupted the
+    timed setup needed (arm a near-future alarm, keep a session visibly active, wait for the real
+    firing) during this feature's live-testing session. What *was* directly confirmed live on real
+    hardware: `AlarmManager` scheduling/re-arming correctness and idempotency (`dumpsys alarm`
+    inspection across repeated reschedules), and — after a real defect was found and fixed — that
+    quiet-hours suppression correctly engages immediately following a cold FGS start already inside
+    a configured window (before/after comparison, two consecutive real screen-off events). Not a
+    blocker (the reach-in code path is structurally identical to an already-live-verified one), but
+    worth an opportunistic real-time confirmation if a device is available and cooperative.
+
 ### Resolved (continued)
 
 14. ~~Does the fake-sleep mechanism work on devices with a secure lock screen (PIN/pattern/
