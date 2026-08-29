@@ -28,7 +28,6 @@ scheduling are explicitly excluded from MVP (deferred to `docs/plans/other/auto-
 `docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md` is implemented):
 
 ```xml
-<uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
 <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -39,6 +38,10 @@ scheduling are explicitly excluded from MVP (deferred to `docs/plans/other/auto-
 
 `SYSTEM_ALERT_WINDOW` is no longer needed — the raw-overlay mechanism it backed was replaced before
 being built; see `docs/plans/mvp/fake-sleep-overlay/PLAN.md` and `docs/DECISIONS.md` §18.
+`BIND_NOTIFICATION_LISTENER_SERVICE` is not a `<uses-permission>` entry — it is declared as
+`android:permission="..."` directly on `NotificationSyncListenerService`'s own `<service>` element
+(already implemented in `docs/plans/mvp/notification-detection-dot-indicator/PLAN.md` §1/§3; not
+redeclared by this plan). See `docs/detailed-spec.md` §2 for the corrected explanation.
 `USE_FULL_SCREEN_INTENT` is auto-granted on this project's current sideload/adb-installed
 distribution (`docs/detailed-spec.md` §2, `docs/DECISIONS.md` §18) — no onboarding step needed for
 it (see `docs/plans/mvp/permission-onboarding/PLAN.md`).
