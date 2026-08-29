@@ -12,6 +12,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.virtualed.app.R
 import com.virtualed.app.data.PendingNotificationsRepository
+import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.overlay.FakeSleepSessionController
 import com.virtualed.app.receiver.ScreenStateReceiver
 
@@ -38,10 +39,9 @@ class VirtuaLedForegroundService : Service() {
     // fake-sleep-overlay PLAN §2 が定義するセッション状態機械。onCreate() で1回だけ生成し保持する。
     private lateinit var sessionController: FakeSleepSessionController
 
-    // ACTION_SCREEN_OFF 用の動的登録 receiver。onStartCommand() で1回だけ登録、onDestroy() で解除する。
+    // ACTION_SCREEN_OFF/ACTION_USER_PRESENT 用の動的登録 receiver。
+    // onStartCommand() で1回だけ登録、onDestroy() で解除する。
     private var screenStateReceiver: ScreenStateReceiver? = null
-
-    // overlay タップ/dismiss 配線 (dismiss-and-peek-interaction) はこの MVP フィーチャーのスコープ外。
 
     override fun onCreate() {
         super.onCreate()
@@ -64,11 +64,41 @@ class VirtuaLedForegroundService : Service() {
         }
         if (screenStateReceiver == null) {
             // START_STICKY による再配信/onStartCommand の複数回呼び出しに対する二重登録ガード。
-            val receiver = ScreenStateReceiver(onScreenOff = { sessionController.onScreenOff() })
-            registerReceiver(receiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+            val receiver = ScreenStateReceiver(
+                onScreenOff = { handleScreenOff() },
+                onUnlock = { handleUnlock() },
+            )
+            registerReceiver(
+                receiver,
+                IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                    addAction(Intent.ACTION_USER_PRESENT)
+                },
+            )
             screenStateReceiver = receiver
         }
         return START_STICKY
+    }
+
+    /**
+     * docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md §6。セッション中に届く2回目の
+     * ACTION_SCREEN_OFF は電源ボタン再押下(=フルディスミス)を意味する。通常の画面オフ検出は
+     * sessionController.onScreenOff() に委譲する — pendingRepo.isEmpty() のゲーティング判定を
+     * ここで重複実装しない (将来の onoff-notification-toggle がこの共有メソッドへ
+     * FeatureEnabledState ガードを追加する予定のため、重複させると OFF 中でもセッションが
+     * 開始してしまう)。
+     */
+    private fun handleScreenOff() {
+        if (sessionController.sessionActive) {
+            FakeSleepActivityHolder.current?.onPowerButtonPressed() ?: sessionController.endSession()
+            return
+        }
+        sessionController.onScreenOff()
+    }
+
+    // docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md §7 — 認証成功によるアンロック検出時の自動ディスミス。
+    private fun handleUnlock() {
+        if (sessionController.sessionActive) sessionController.endSession()
     }
 
     override fun onDestroy() {
