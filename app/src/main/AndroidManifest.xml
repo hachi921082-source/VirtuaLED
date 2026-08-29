@@ -3,8 +3,6 @@
 
     <!--
       docs/plans/mvp/foreground-service-setup/PLAN.md §1 (MVP subset)。
-      RECEIVE_BOOT_COMPLETED は quiet-hours 機能実装時まで意図的に除外
-      (docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md 参照)。
       SYSTEM_ALERT_WINDOW は不要 (docs/DECISIONS.md §18 で生 overlay window 方式を廃止済み)。
       BIND_NOTIFICATION_LISTENER_SERVICE は <uses-permission> ではなく、
       NotificationSyncListenerService の <service> 要素側で宣言済み (下記参照)。
@@ -15,6 +13,13 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §7。このアプリで唯一
+      RECEIVE_BOOT_COMPLETED を要求する機能 (クワイエットアワーの AlarmManager 予約を
+      端末再起動後に再登録するため)。SCHEDULE_EXACT_ALARM は不要 (docs/DECISIONS.md §10)。
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -78,6 +83,27 @@
         -->
         <receiver
             android:name=".receiver.OnOffActionReceiver"
+            android:exported="false" />
+
+        <!--
+          docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §5, §7 (verbatim)。
+          端末再起動後にクワイエットアワーの AlarmManager 予約を再登録するための唯一の
+          BOOT_COMPLETED 受信者 (このアプリで唯一 RECEIVE_BOOT_COMPLETED を使用)。
+        -->
+        <receiver
+            android:name=".receiver.BootCompletedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+          docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §4, §7。QuietHoursScheduler
+          が発行する PendingIntent 経由でのみ到達するため、OnOffActionReceiver 同様 exported=false。
+        -->
+        <receiver
+            android:name=".receiver.QuietHoursAlarmReceiver"
             android:exported="false" />
     </application>
 
