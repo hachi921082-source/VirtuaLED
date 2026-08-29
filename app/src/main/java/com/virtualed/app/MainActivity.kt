@@ -143,7 +143,11 @@ fun MainSwitchScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var enabled by remember { mutableStateOf(false) }
+    // 固定値 false ではなく、実際に VirtuaLedForegroundService が動作中かを起動時に問い合わせる —
+    // キーワード設定/カテゴリ設定画面へ遷移して戻ると MainSwitchScreen は composition から
+    // 一旦外れて再度組み込まれるため、固定値 false のままだと FGS が実際には動作継続していても
+    // スイッチの見た目だけ OFF に戻ってしまう (実機テストで発見)。
+    var enabled by remember { mutableStateOf(isForegroundServiceRunning(context)) }
 
     // docs/plans/other/dnd-handling/PLAN.md §4 — UI 表示は内部フラグ hide_during_dnd の反転表示。
     // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (= 表示しない) を仮表示する。
@@ -437,6 +441,16 @@ private fun ColorPickerSection(selectedColorArgb: Int, onColorChanged: (Int) -> 
 // ON/OFF 経路は非対称 (docs/plans/mvp/onoff-notification-toggle/PLAN.md §5) —
 // ON は FeatureEnabledState を明示的に true へ戻してから起動する (通知アクションで OFF に
 // された状態のまま残っている可能性があるため)。OFF は ACTION_STOP → stopSelf() で完全停止する。
+// ActivityManager.getRunningServices() は API 26 以降サードパーティアプリからは他アプリの
+// サービスを見れなくなったが、呼び出し元自身のアプリのサービスは引き続き取得できる
+// (公式ドキュメント記載の後方互換用途) — MainSwitchScreen の enabled 初期値をこれで問い合わせる。
+private fun isForegroundServiceRunning(context: Context): Boolean {
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+    @Suppress("DEPRECATION")
+    return activityManager.getRunningServices(Int.MAX_VALUE)
+        .any { it.service.className == VirtuaLedForegroundService::class.java.name }
+}
+
 private fun setForegroundServiceEnabled(context: Context, enabled: Boolean) {
     val intent = Intent(context, VirtuaLedForegroundService::class.java)
     if (enabled) {
