@@ -26,6 +26,7 @@
 18. Why the Fake-Sleep Mechanism Moved From a Raw Overlay Window to a Full-Screen Activity
 19. Why the MVP Build Order Was Corrected From `fake-sleep-overlay`-First to `notification-detection-dot-indicator`/`foreground-service-setup`-First
 20. Why the `other/`-Tier Visual Extension Surface Is a Separate State-Holder Class With Synchronized Blink and Combined Gating
+21. Why App-to-Category Mapping Is User-Assigned, Not Auto-Inferred
 
 ## 1. Revival Background
 
@@ -544,3 +545,22 @@ rationale lives here, not in the PLAN.md files themselves — `docs/plans/mvp/fa
 PLAN.md` §7, `docs/plans/other/burn-in-protection/PLAN.md` §4, and
 `docs/plans/other/multi-notification-stacking/PLAN.md` §2 state only the resulting What/How and link
 back to this section.
+
+## 21. Why App-to-Category Mapping Is User-Assigned, Not Auto-Inferred
+
+Resolves `docs/QA.md` #13. `docs/plans/other/category-icons-and-assets/PLAN.md` §4 defined two
+candidate implementations behind a shared `CategoryMapper` interface — a hardcoded
+package-name-to-category lookup table, or a settings screen where the user assigns a category to
+each monitored app, persisted via DataStore. The user chose the latter, asked directly (a product
+decision, not a technical implementation detail).
+
+Same underlying rationale as §3 (user-registered keywords over auto-parsing): a hardcoded table
+only covers apps someone thought to add to it ahead of time — any app not listed silently falls
+back to `OTHER` (`PLAN.md` §3) until a future code change adds it, which does not scale to
+whatever apps a given user actually has installed. A user-assigned settings screen correctly
+categorizes any app the user has, with no code change ever needed to support a new app — at the
+cost of requiring a one-time manual setup pass per monitored app, judged worth it for correctness.
+This also keeps a consistent pattern with `importance-based-sizing`'s `KeywordSettingsScreen`
+(per-app settings, an installed-app picker via `PackageManager`, write-through persistence, no
+navigation library) — `category-icons-and-assets` reuses that same UI shape rather than
+introducing a new one.
