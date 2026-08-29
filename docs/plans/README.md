@@ -26,7 +26,7 @@ dependency-ordered file — each feature directory is self-contained and indepen
 | 4 | [`fake-sleep-overlay`](mvp/fake-sleep-overlay/PLAN.md) | Done (merged, PR #4) |
 | 5 | [`dismiss-and-peek-interaction`](mvp/dismiss-and-peek-interaction/PLAN.md) | Done (merged, PR #5) |
 | 6 | [`onoff-notification-toggle`](mvp/onoff-notification-toggle/PLAN.md) | Done (merged, PR #7) |
-| 7 | **MVP Integration Test** (see below) | Not started |
+| 7 | **MVP Integration Test** (see below) | Done (passed on arrows We2 Plus / M06, secure PIN lock) |
 
 ### 7. MVP Integration Test
 
@@ -52,6 +52,11 @@ tend to surface only when features interact, not when reviewed individually. Min
    `FakeSleepActivity` is showing — confirm the session ends itself immediately.
 
 Update this row's status once this checklist has actually been run and passed.
+
+**Result**: run on arrows We2 Plus (`M06`) with a secure PIN lock configured. All 7 steps passed.
+One retry was needed for steps 2/7 after an unrelated device-side interaction issue (see
+`docs/QA.md` #16 — an OEM ambient/doze wakefulness path occasionally prevented `FakeSleepActivity`
+from auto-launching; not reproduced after a clean USB/app reset, not treated as an MVP blocker).
 
 `fake-sleep-overlay`'s secure-keyguard mechanism was already validated via a standalone prototype
 (`docs/DECISIONS.md` §18) — this integration test is about the full built app, not a re-validation
