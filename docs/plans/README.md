@@ -68,12 +68,16 @@ Once row 7 above is marked passed: **notify the user** (do not silently proceed)
 the `other/` tier in this order:
 1. A reviewer-lite cross-consistency pass over the `docs/plans/other/` PLAN.md files (mirroring
    the pre-implementation review already done for the `mvp/` tier), since several of them
-   reference/extend MVP internals (e.g. `indicator-color-customization` replaces
-   `fake-sleep-overlay`'s hardcoded default; `multi-notification-stacking` replaces
-   `FakeSleepActivity.showDot()`) that may have shifted during MVP implementation. Doing this
-   review before MVP is finalized risks reviewing against a moving target.
+   reference/extend MVP internals that may have shifted during MVP implementation. Doing this
+   review before MVP is finalized risks reviewing against a moving target. **Status: Done.** This
+   pass found 6 of the 9 `other/` plans still described a pre-MVP `WindowManager`/`View`-based
+   overlay architecture that no longer exists; `docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7 was
+   extended with a `FakeSleepIndicatorUiState` extension surface (see `docs/DECISIONS.md` §20) and
+   those 6 plans (`burn-in-protection`, `indicator-color-customization`, `importance-based-sizing`,
+   `category-icons-and-assets`, `multi-notification-stacking`,
+   `auto-stop-conditions/PLAN-1-proximity.md`) were rewritten against it and re-reviewed, approved.
 2. Implement `other/` features in whatever order is wanted (no strict sequencing between them),
-   with their own per-feature integration testing as each is built.
+   with their own per-feature integration testing as each is built. **This is the current step.**
 
 ## Other Features (no strict order)
 
