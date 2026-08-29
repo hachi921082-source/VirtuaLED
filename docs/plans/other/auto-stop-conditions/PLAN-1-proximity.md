@@ -48,7 +48,7 @@ class ProximityMonitor(
 ## 3. Session Lifecycle Integration
 
 Suspends *drawing only* — the session (`WakeLock`, pending-notification tracking) stays active
-while covered; only the overlay `View` is hidden/shown, per `docs/detailed-spec.md` §6
+while covered; only the indicator slot group is hidden/shown, per `docs/detailed-spec.md` §6
 ("suspend drawing while covered, resume on uncover"):
 
 ```kotlin
@@ -60,17 +60,19 @@ proximityMonitor.stop()
 
 // Callback wiring, during controller init:
 proximityMonitor = ProximityMonitor(context) { covered ->
-    if (covered) overlayManager.hide() else overlayManager.restoreCurrentState()
-    // restoreCurrentState() re-shows whichever of showDot()/showPreviewText() applied before hiding
-    // (docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md's OverlayUiState) — no state is lost.
+    FakeSleepActivityHolder.indicatorUiState?.indicatorVisible?.value = !covered
+    // The dot/preview-text content itself (docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md's
+    // previewLinesState) is untouched — indicatorVisible only gates the slot group's own
+    // rendering, so whatever was showing before cover reappears unchanged on uncover; no state is
+    // lost or needs restoring separately.
 }
 ```
 
-`OverlayWindowManager.hide()`/`restoreCurrentState()` differ from
-`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §5's session-level `show()`/`hide()`: this is a
-temporary visibility suspend within an active session, not the session-end teardown (`WakeLock`
-stays held, `BurnInProtector` — `docs/plans/other/burn-in-protection/` — pauses/resumes alongside
-visibility for consistency).
+`indicatorVisible` toggling (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7) is independent of the
+session lifecycle: session state, pending-notification tracking, and the `WakeLock` guard (§4 of
+that plan) all stay active while `indicatorVisible = false` — only the rendered slot group is
+hidden. This is a temporary visibility suspend within an active session, not the session-end
+teardown (`endSession()`, §6 of that plan).
 
 ## 4. Cross-Feature Touchpoints
 
