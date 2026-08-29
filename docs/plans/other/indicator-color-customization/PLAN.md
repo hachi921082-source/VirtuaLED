@@ -81,3 +81,15 @@ applies uniformly across indicator display modes by construction, per `docs/deta
   `docs/plans/other/multi-notification-stacking/`'s per-slot icons identically, with no extra
   wiring needed on their part — they render whatever `IndicatorSlotUiState`s are in `slots`, all
   tinted by the one shared `tintColor` value.
+
+## Implementation Deviation Notes
+
+- Settings UI implemented as a `ColorPickerSection` composable inline in `MainSwitchScreen`
+  (`MainActivity.kt`), not as a separate `com.virtualed.app.ui.ColorSettingsScreen.kt` file — matches
+  this codebase's established pattern (DND toggle, battery threshold slider), since there is no
+  navigation component/route in this app.
+- `parseHexColorOrNull` lives in `com.virtualed.app.data.IndicatorColorSettings.kt` (top-level
+  function, not inside a UI file), alongside the `IndicatorColorSettings` object.
+- `FakeSleepActivity.onCreate()` loads the persisted color via `androidx.lifecycle.lifecycleScope`
+  (the `androidx.lifecycle:lifecycle-runtime-ktx` dependency was already present in
+  `app/build.gradle.kts`, unused elsewhere), not a manually-managed `CoroutineScope`.
