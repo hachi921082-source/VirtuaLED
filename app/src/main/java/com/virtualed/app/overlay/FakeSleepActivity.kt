@@ -25,8 +25,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
+import com.virtualed.app.data.IndicatorColorSettings
 import com.virtualed.app.data.PendingNotificationsRepository
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 // スロットグループのドットサイズ (dp)。焼き付き防止のバウンディングボックス計算 (px 換算) と
 // 実際の描画サイズの両方で共有する (docs/plans/other/burn-in-protection/PLAN.md §3)。
@@ -41,10 +44,12 @@ private const val INDICATOR_DOT_SIZE_DP = 12
  * docs/plans/mvp/fake-sleep-overlay/PLAN.md §5、
  * docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md §3〜§6 を実装。
  *
- * MVP スコープ: 黒背景 + 固定色 (白) のドット、および PeekInteractionController による
+ * MVP スコープ: 黒背景 + 単一ドット、および PeekInteractionController による
  * ドット/プレビューテキストのコンテンツ view トグルのみ。位置は BurnInProtector が一定間隔で
- * ランダムに再配置する (docs/plans/other/burn-in-protection/PLAN.md)。複数アイコンの視覚的
- * レイアウト・座標ベースのヒットテストは対象外 (docs/plans/other/multi-notification-stacking/)。
+ * ランダムに再配置し (docs/plans/other/burn-in-protection/PLAN.md)、色はユーザー設定の
+ * 永続化色 (デフォルト白) を反映する (docs/plans/other/indicator-color-customization/PLAN.md)。
+ * 複数アイコンの視覚的レイアウト・座標ベースのヒットテストは対象外
+ * (docs/plans/other/multi-notification-stacking/)。
  */
 class FakeSleepActivity : ComponentActivity() {
     // Service 起動時に1回だけ生成されるため、この Activity が存在する時点では常に非 null
@@ -84,6 +89,13 @@ class FakeSleepActivity : ComponentActivity() {
         // まだ存在しないため、ここで直接初期状態を通知する
         // (docs/plans/other/burn-in-protection/PLAN.md §4 からの実装上の乖離)。
         burnInProtector.onSessionActiveChanged(true)
+        // セッション開始時に1回だけ永続化色を読み込んで反映する。以後アクティブセッション中に
+        // 設定画面側で変更された場合は FakeSleepActivityHolder.indicatorUiState 経由で直接
+        // tintColor へ書き込まれる (docs/plans/other/indicator-color-customization/PLAN.md §5)。
+        lifecycleScope.launch {
+            val colorArgb = IndicatorColorSettings.getColorArgb(applicationContext)
+            indicatorUiState.tintColor.value = Color(colorArgb)
+        }
         peekController = PeekInteractionController(
             activity = this,
             sessionController = sessionController,
@@ -95,6 +107,7 @@ class FakeSleepActivity : ComponentActivity() {
                 previewLinesState = previewLinesState,
                 indicatorVisibleState = indicatorUiState.indicatorVisible,
                 indicatorOffsetState = indicatorUiState.indicatorOffset,
+                tintColorState = indicatorUiState.tintColor,
                 onTap = { peekController.onTap() },
             )
         }
@@ -141,6 +154,7 @@ private fun FakeSleepContent(
     previewLinesState: MutableState<List<String>?>,
     indicatorVisibleState: MutableState<Boolean>,
     indicatorOffsetState: MutableState<IntOffset>,
+    tintColorState: MutableState<Color>,
     onTap: () -> Unit,
 ) {
     val previewLines = previewLinesState.value
@@ -160,7 +174,7 @@ private fun FakeSleepContent(
         // 表示状態がそのまま復元される (docs/plans/other/auto-stop-conditions/PLAN-1-proximity.md §3)。
         if (indicatorVisible) {
             if (previewLines == null) {
-                IndicatorGroup(offsetState = indicatorOffsetState)
+                IndicatorGroup(offsetState = indicatorOffsetState, tintColorState = tintColorState)
             } else {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -177,17 +191,18 @@ private fun FakeSleepContent(
  * インジケータースロットグループの位置決めコンテナ。画面左上を基準とする絶対座標系で、
  * offsetState (BurnInProtector が書き換える) の値だけドットをずらして描画する
  * (docs/plans/other/burn-in-protection/PLAN.md §3)。複数スロットのグリッドレイアウトは対象外
- * (docs/plans/other/multi-notification-stacking/) — MVP と同じ単一ドット (固定色・白) を
- * オフセット付きで描画するのみ。
+ * (docs/plans/other/multi-notification-stacking/) — MVP と同じ単一ドットを
+ * オフセット付きで描画するのみ。色は tintColorState (ユーザー設定の永続化色、
+ * デフォルト白) から取る (docs/plans/other/indicator-color-customization/PLAN.md §5)。
  */
 @Composable
-private fun IndicatorGroup(offsetState: MutableState<IntOffset>) {
+private fun IndicatorGroup(offsetState: MutableState<IntOffset>, tintColorState: MutableState<Color>) {
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .offset { offsetState.value }
                 .size(INDICATOR_DOT_SIZE_DP.dp)
-                .background(Color.White, CircleShape),
+                .background(tintColorState.value, CircleShape),
         )
     }
 }

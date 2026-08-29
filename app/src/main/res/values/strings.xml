@@ -30,4 +30,9 @@
     <string name="settings_battery_threshold_label">バッテリー残量が %1$d%% 以下で自動停止</string>
     <!-- docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §4 -->
     <string name="auto_stop_battery_toast">バッテリー残量が %1$d%% 以下になったため停止しました</string>
+
+    <!-- docs/plans/other/indicator-color-customization/PLAN.md §3 -->
+    <string name="settings_indicator_color_label">インジケーターの色</string>
+    <string name="settings_indicator_color_hex_label">HEX (例: #FF0000)</string>
+    <string name="settings_indicator_color_hex_error">無効なHEXコードです</string>
 </resources>

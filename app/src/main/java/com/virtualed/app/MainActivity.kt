@@ -10,13 +10,19 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -30,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -38,10 +45,14 @@ import androidx.core.content.ContextCompat
 import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
+import com.virtualed.app.data.IndicatorColorSettings
+import com.virtualed.app.data.parseHexColorOrNull
+import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.service.VirtuaLedForegroundService
 import com.virtualed.app.ui.OnboardingScreen
 import com.virtualed.app.ui.theme.VirtuaLedTheme
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -122,6 +133,24 @@ fun MainSwitchScreen() {
         batteryThreshold = BatteryThresholdSettings.getThresholdPercent(context)
     }
 
+    // docs/plans/other/indicator-color-customization/PLAN.md §2/§3 — インジケーター色設定。
+    // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (白) を仮表示する。
+    var indicatorColorArgb by remember { mutableStateOf(IndicatorColorSettings.DEFAULT_COLOR_ARGB) }
+    LaunchedEffect(Unit) {
+        indicatorColorArgb = IndicatorColorSettings.getColorArgb(context)
+    }
+    // 永続化に加え、セッションが現在アクティブなら FakeSleepActivityHolder 経由で共有
+    // MutableState へ直接書き込み、再起動なしで即座に反映する
+    // (docs/plans/other/indicator-color-customization/PLAN.md §5)。セッション非アクティブなら
+    // indicatorUiState は null のため単なる永続化のみで no-op となる。
+    val onIndicatorColorChanged: (Int) -> Unit = { colorArgb ->
+        indicatorColorArgb = colorArgb
+        coroutineScope.launch {
+            IndicatorColorSettings.setColorArgb(context, colorArgb)
+            FakeSleepActivityHolder.indicatorUiState?.tintColor?.value = Color(colorArgb)
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -176,7 +205,93 @@ fun MainSwitchScreen() {
                         modifier = Modifier.width(240.dp),
                     )
                 }
+                ColorPickerSection(
+                    selectedColorArgb = indicatorColorArgb,
+                    onColorChanged = onIndicatorColorChanged,
+                )
             }
+        }
+    }
+}
+
+// プリセットパレット。厳密な色値はプロダクト決定ではなく実装時の見た目調整
+// (docs/plans/other/indicator-color-customization/PLAN.md §3)。
+private val INDICATOR_COLOR_PRESETS = listOf(
+    0xFFFFFFFF.toInt(), // white
+    0xFFF44336.toInt(), // red
+    0xFFFF9800.toInt(), // orange
+    0xFFFFEB3B.toInt(), // yellow
+    0xFF4CAF50.toInt(), // green
+    0xFF00BCD4.toInt(), // cyan
+    0xFF2196F3.toInt(), // blue
+    0xFF9C27B0.toInt(), // purple
+)
+
+/**
+ * インジケーター色の選択 UI。プリセットスウォッチのタップは即座に永続化・反映し、HEX 欄は
+ * 解析成功時のみ永続化する (docs/plans/other/indicator-color-customization/PLAN.md §3/§4)。
+ */
+@Composable
+private fun ColorPickerSection(selectedColorArgb: Int, onColorChanged: (Int) -> Unit) {
+    var hexInput by remember(selectedColorArgb) {
+        mutableStateOf(String.format(Locale.ROOT, "#%08X", selectedColorArgb))
+    }
+    var hexError by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.padding(top = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(text = stringResource(R.string.settings_indicator_color_label))
+        Row(modifier = Modifier.padding(top = 8.dp)) {
+            INDICATOR_COLOR_PRESETS.forEach { presetArgb ->
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .size(32.dp)
+                        .background(Color(presetArgb), CircleShape)
+                        .border(1.dp, Color.Gray, CircleShape)
+                        .clickable {
+                            hexError = false
+                            onColorChanged(presetArgb)
+                        },
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = hexInput,
+                onValueChange = { input ->
+                    hexInput = input
+                    val parsed = parseHexColorOrNull(input)
+                    if (parsed != null) {
+                        hexError = false
+                        onColorChanged(parsed)
+                    } else {
+                        hexError = true
+                    }
+                },
+                label = { Text(text = stringResource(R.string.settings_indicator_color_hex_label)) },
+                singleLine = true,
+                isError = hexError,
+                modifier = Modifier.width(160.dp),
+            )
+            Box(
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .size(32.dp)
+                    .background(Color(selectedColorArgb), CircleShape)
+                    .border(1.dp, Color.Gray, CircleShape),
+            )
+        }
+        if (hexError) {
+            Text(
+                text = stringResource(R.string.settings_indicator_color_hex_error),
+                color = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }
