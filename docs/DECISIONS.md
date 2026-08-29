@@ -25,6 +25,7 @@
    - See §18 — this section's WakeLock-holds-the-whole-session design is superseded.
 18. Why the Fake-Sleep Mechanism Moved From a Raw Overlay Window to a Full-Screen Activity
 19. Why the MVP Build Order Was Corrected From `fake-sleep-overlay`-First to `notification-detection-dot-indicator`/`foreground-service-setup`-First
+20. Why the `other/`-Tier Visual Extension Surface Is a Separate State-Holder Class With Synchronized Blink and Combined Gating
 
 ## 1. Revival Background
 
@@ -483,3 +484,63 @@ dot appears) first becomes testable, ahead of the interaction/toggle refinements
 `docs/plans/README.md`'s MVP Build Order table and `docs/HANDOFF.md` were both updated to this
 order. No other content in the six MVP `PLAN.md` files changed — this was a build-sequencing
 correction, not a design change.
+
+## 20. Why the `other/`-Tier Visual Extension Surface Is a Separate State-Holder Class With Synchronized Blink and Combined Gating
+
+A `reviewer-lite` cross-consistency pass over `docs/plans/other/` (requested before starting
+`other/`-tier implementation, per `docs/plans/README.md`'s own stated first step) found that 6 of
+the 9 `other/` plans still described a pre-MVP `WindowManager`/`View`-based overlay architecture
+(`OverlayWindowManager`, `OverlayIndicatorView`, `MultiIndicatorContainerView`,
+`ImageView.setColorFilter()`, `ObjectAnimator`) that no longer exists — the actual, already-shipped
+MVP mechanism is a Jetpack Compose-rendered `FakeSleepActivity` (§18) with a single
+`previewLinesState: MutableState<List<String>?>`. Discussed directly with the user (not delegated)
+before handing a rewrite to `developer-lite`, since it required deciding a new architecture, not
+just fixing stale references.
+
+**Why a separate `FakeSleepIndicatorUiState` class, not more properties on `FakeSleepActivity`
+itself**: the six affected features (burn-in reposition, color, blink/size, category icons,
+multi-notification slots, proximity-cover visibility) will keep accumulating visual-state needs over
+time (e.g. dot shape, per-category color, fade transitions were named as plausible future asks, not
+committed plans). Keeping `FakeSleepActivity` scoped to lock-screen lifecycle concerns
+(`setShowWhenLocked`/`setTurnScreenOn`/window flags, §18) and moving pure visual state into its own
+class avoids the Activity growing indefinitely as more `other/`-tier features land. The alternative
+(folding all state directly into `FakeSleepActivity`) was rejected for this reason alone — there is
+no functional difference between the two.
+
+**Why blink is synchronized across all shown slots, not per-slot/staggered**: per-slot staggered
+blinking was considered on the assumption it might reduce battery draw (spreading lit-pixel time out
+over time rather than concentrating it). That assumption does not hold: total lit-pixel-time across
+a full blink cycle is identical whether slots blink in sync or staggered — only the *peak*
+instantaneous lit-pixel count differs, and that has no material effect on total energy draw for a
+handful of small icons. Staggering also requires one timer/phase per slot instead of one shared
+timer, meaning *more* separate recomposition events over time, not fewer — working against battery
+efficiency rather than for it. Synchronized blink (one shared `blinkIntervalMs`, applied to every
+currently-shown slot whenever any of them has `highImportance = true`) was chosen as strictly
+simpler with no battery downside.
+
+**Why `BurnInProtector`'s three pause/resume triggers (session active/inactive, `OverlayUiState`
+`INDICATOR_SHOWN`/`PREVIEW_SHOWN`, proximity covered/uncovered) are combined through one
+`recompute()` gate rather than each trigger calling `start()`/`stop()` directly**: an initial
+`docs/plans/other/auto-stop-conditions/PLAN-1-proximity.md` rewrite added a direct
+`burnInProtector.start()` call on uncover, mirroring the existing peek-preview pause/resume calls.
+This is unsafe once a third independent trigger exists: covering the proximity sensor while
+`PREVIEW_SHOWN` is active, then uncovering, would call `start()` from the proximity trigger alone and
+incorrectly resume repositioning during the text preview, even though the peek-preview trigger never
+signaled a resume. Combining all three conditions into a single `shouldRun = sessionActive &&
+uiState == INDICATOR_SHOWN && !proximityCovered` check, recomputed on every trigger, removes this
+class of bug entirely — each trigger reports its own state change, and only the combined gate ever
+calls the real `start()`/`stop()`.
+
+**Why `multi-notification-stacking` reconciles onto the shared `IndicatorSlotUiState` without an
+`isOverflow` flag**: an earlier draft of that plan (written before this reconciliation) had its own
+`IndicatorSlot` data class with a separate `isOverflow: Boolean` field. That field was purely
+descriptive and never actually consumed by the render path (its own §4/§6 only ever branched on
+`category`/`count`), so it was dropped rather than carried into the shared
+`IndicatorSlotUiState` — a collapsed "other" slot is already distinguishable as an ordinary slot with
+`category = IndicatorCategory.OTHER`, with no separate flag needed.
+
+Per the "Documentation Content Separation Rule" (`~/.claude/shared/dev-workflow.md` §8), this
+rationale lives here, not in the PLAN.md files themselves — `docs/plans/mvp/fake-sleep-overlay/
+PLAN.md` §7, `docs/plans/other/burn-in-protection/PLAN.md` §4, and
+`docs/plans/other/multi-notification-stacking/PLAN.md` §2 state only the resulting What/How and link
+back to this section.
