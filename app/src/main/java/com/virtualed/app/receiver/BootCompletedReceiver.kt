@@ -19,9 +19,14 @@ class BootCompletedReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
-            val window = QuietHoursSettings.getWindow(context)
-            QuietHoursScheduler(context).reschedule(window)
-            pendingResult.finish()
+            // DataStore 読み出しが例外を投げても pendingResult.finish() を必ず呼ぶ
+            // (reviewer-lite 指摘、quiet-hours レビュー — QuietHoursAlarmReceiver と同じ対応)。
+            try {
+                val window = QuietHoursSettings.getWindow(context)
+                QuietHoursScheduler(context).reschedule(window)
+            } finally {
+                pendingResult.finish()
+            }
         }
     }
 }
