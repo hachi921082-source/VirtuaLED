@@ -11,8 +11,10 @@
 5. Repo Setup and Feature 1 Progress (Follow-Up Session)
 6. Feature 2 Progress (Follow-Up Session)
 7. Feature 3 Progress (Follow-Up Session)
-8. Still Open
-9. Recommended Next Step
+8. Feature 4 Progress (Follow-Up Session)
+9. Feature 5 Progress and a Fake-Sleep Screen-Timeout Bug Found/Fixed via Sense9 Testing (Follow-Up Session)
+10. Still Open
+11. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -232,7 +234,142 @@ Git/GitHub Actions"), the user was offered a choice via `AskUserQuestion` (retry
 hold) and chose retry, which then succeeded. `docs/plans/README.md`'s status column now shows this
 feature as done.
 
-## 8. Still Open
+## 8. Feature 4 Progress (Follow-Up Session)
+
+Implemented MVP feature 4, `fake-sleep-overlay`, following the same branch/implement/review/PR
+flow established for features 1-3 (§5/§6/§7): branch `feature/mvp-fake-sleep-overlay`.
+
+**Implementation** (`developer-lite`, per PLAN.md §1-§6): added `FakeSleepActivityHolder`
+(singleton holding the resumed `FakeSleepActivity` + the `FakeSleepSessionController` instance),
+`FakeSleepSessionController` (screen-off gating against `PendingNotificationsRepository.isEmpty()`,
+the short `withScreenOffProcessingGuard` `PARTIAL_WAKE_LOCK`, posting/cancelling the
+full-screen-intent notification on a dedicated `IMPORTANCE_HIGH` channel, and the "became empty"
+listener that ends the session), `FakeSleepActivity` (full-screen `ComponentActivity` using Compose
+`setContent{}` rather than an XML layout — matches the project's existing Compose-only convention,
+and the plan explicitly allows this as an equivalent — `setShowWhenLocked(true)` +
+`setTurnScreenOn(true)`, black background + one fixed centered white dot, no tap handling), and
+`ScreenStateReceiver` (`ACTION_SCREEN_OFF`, dynamically registered). `VirtuaLedForegroundService`
+was extended (not altered) to construct the controller and register/unregister the receiver
+alongside its existing feature 1-3 behavior. Reused the pre-existing `Theme.VirtuaLed.FakeSleep`
+theme unmodified. `assembleDebug` — BUILD SUCCESSFUL.
+
+**Review** (`reviewer-lite`): approved. Plan/spec cross-check passed line-by-line against the diff;
+confirmed no scope creep (no category-icon, color, burn-in, tap/peek, or multi-notification-stacking
+code present — those are out of scope for this plan); confirmed correct integration with the
+already-merged `PendingNotificationsRepository` and `VirtuaLedForegroundService` APIs; build
+verified clean independently. A physical device was available (model `M06`, secure biometric lock
+configured) and the reviewer completed everything reachable without unlocking it (APK install,
+granting notification-listener access and `POST_NOTIFICATIONS` via `adb`, confirming
+`VirtuaLedForegroundService` is correctly non-exported) but could not complete the full interactive
+flow (switch ON → real notification → screen off → confirm `FakeSleepActivity` renders over the
+secure lock) since it lacked the device's unlock credentials — left as a non-blocking follow-up,
+same handling as feature 2's review when no device was available.
+
+**Merge**: PR #4 created, then `gh pr merge` was blocked twice in a row by the Claude Code
+auto-mode classifier (not resolved by a retry this time, unlike feature 3's single-retry case).
+**New workflow preference established this session**: for this specific situation, don't keep
+retrying `gh pr merge` or defaulting to a vague "merge manually" option — ask via
+`AskUserQuestion` offering **local `git merge --no-ff` + `git push origin master`** as the offered
+option instead, and only run it after the user confirms (an initial attempt to run it proactively
+without asking, right after the user's first "switch to local merge+push" remark, was correctly
+rejected — the user's follow-up clarified they still want to be asked each time, just with that
+option offered). Recorded as persistent memory (`feedback_pr_merge_use_local_git`); GitHub
+recognized the PR as `MERGED` automatically once the equivalent commit landed on `master` via the
+local merge + push. `docs/plans/README.md`'s status column now shows this feature as done.
+
+**Manual on-device confirmation** (done directly by the user after merge, not by an agent): both
+follow-up items from the review were walked through step-by-step and confirmed working —
+`permission-onboarding`'s full visual flow (card renders → Grant → Settings → return →
+auto-transition to `MainSwitchScreen`, no manual reload needed) and `fake-sleep-overlay`'s core
+mechanism (`FakeSleepActivity` renders full-screen over a **secure** lock screen when a
+notification is pending and the screen turns off; clearing the notification ends the session and
+the dot disappears automatically). Device model used for this manual pass was not recorded in this
+session.
+
+## 9. Feature 5 Progress and a Fake-Sleep Screen-Timeout Bug Found/Fixed via Sense9 Testing (Follow-Up Session)
+
+Implemented MVP feature 5, `dismiss-and-peek-interaction`, following the same branch/implement/
+review/PR flow established for features 1-4 (§5/§6/§7/§8): branch
+`feature/mvp-dismiss-and-peek-interaction`.
+
+**Implementation** (`developer-lite`, per PLAN.md §1-§8): added `PeekInteractionController`
+(`OverlayUiState` state machine — `INDICATOR_SHOWN`/`PREVIEW_SHOWN`, `onTap()`, aggregated
+preview-text building from `PendingNotificationsRepository.snapshot()`, 4s `Handler`-based preview
+timeout). Extended `FakeSleepActivity` with a single tap handler and a dot/text content-view swap —
+implemented as Compose `Modifier.clickable` + `mutableStateOf` rather than the plan's
+XML-`findViewById` pseudocode, matching this project's Compose-only convention (verified by
+`reviewer-lite` to preserve the plan's intent: single tap-anywhere, no coordinate hit-testing, same
+Activity instance). Extended `VirtuaLedForegroundService`'s `ScreenStateReceiver` with power-button
+full-dismiss detection (second `ACTION_SCREEN_OFF` while session active) and `ACTION_USER_PRESENT`
+unlock auto-dismiss — critically, delegating to the existing shared `sessionController.onScreenOff()`
+gating method rather than duplicating its `pendingRepo.isEmpty()` check, per the plan's explicit
+warning that duplicating it would let a new session start even while `onoff-notification-toggle`
+(feature 6, not yet built) later flags the feature OFF. `assembleDebug` — BUILD SUCCESSFUL.
+
+**Review** (`reviewer-lite`): approved. Plan/spec cross-check passed line-by-line, including the
+critical §6 gating-duplication pitfall; confirmed no regression to features 1-4; confirmed no scope
+creep (no multi-icon rendering, no coordinate hit-testing, no `PendingIntent` held). No physical
+device was reachable in the reviewer's sandbox (`adb devices` empty, no AVD configured) — live
+tap/timeout/power-button/unlock flows were left as a follow-up, same handling as feature 2/4's
+reviews when no device was available. Merged via PR #5 — `gh pr merge` was blocked by the Claude
+Code auto-mode classifier; per the established workflow preference (§8, `~/.claude/CLAUDE.md`
+"Blocked Git/GitHub Actions"), the user was offered local `git merge --no-ff` + `git push` and chose
+it, which succeeded (GitHub recognized the PR as `MERGED` automatically). `docs/plans/README.md`'s
+status column now shows this feature as done.
+
+**Sense9 real-device testing** (done directly in the main session, prompted by the user connecting
+the device): this was the first MVP testing pass on the Sharp AQUOS sense9 (model `SH-M26`, one of
+the two officially supported test devices, `docs/DECISIONS.md` §11) rather than a smoke-test
+stand-in. adb initially couldn't see the device (USB debugging was off; resolved once the user
+enabled it in Developer Options). Notification-listener access and `POST_NOTIFICATIONS` were
+granted via adb; a test notification was posted via `adb shell cmd notification post`.
+
+**Bug found**: tapping the fake-sleep dot to test the preview state instead showed the app already
+back on `MainActivity` — the session had ended on its own. Logcat pinpointed the cause: `screen_off_
+timeout` on this device is 15000ms, and exactly ~15s after `FakeSleepActivity` displayed, the OS
+fired a real `ACTION_SCREEN_OFF` from idle timeout alone (confirmed the arrows We2 Plus is also
+configured for 15s, so this isn't sense9-specific). `FakeSleepActivity`'s `setTurnScreenOn(true)`
+(feature 4) only turns the screen on once at resume — it does not suppress the device's normal idle
+timeout afterward, contrary to what `docs/DECISIONS.md` §18 had assumed (that assumption was never
+exercised past a few seconds during §18's original prototype validation). Feature 5's own
+power-button-dismiss logic (§6, correctly implemented per its own spec) then treated this
+indistinguishable second `ACTION_SCREEN_OFF` as a power-button press and ended the session —
+silently dismissing the dot even with a notification still pending, defeating the app's core
+premise (`docs/DECISIONS.md` §17 had already rejected exactly this failure mode in the abstract,
+for a different reason, before it was known to be concretely reachable this way).
+
+**Fix**: branch `fix/fake-sleep-keep-screen-on`, single-line change — `FakeSleepActivity` now also
+holds `WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON` on its window for the session's duration
+(the standard technique real always-on-display implementations use; this flag does not suppress a
+genuine hardware power-button press's `ACTION_SCREEN_OFF`, so feature 5's power-button-dismiss
+heuristic remains valid — only the idle-timeout false positive is eliminated). Implemented by
+`developer-lite`, which also updated `docs/plans/mvp/fake-sleep-overlay/PLAN.md` (§1/§4/§5) and
+added a cross-reference note to `docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md` §6. A
+correction was added to `docs/DECISIONS.md` §18 documenting that its original "`setTurnScreenOn`
+alone suffices" claim was wrong, with the on-device evidence. Reviewed and approved by
+`reviewer-lite` (diff scope, code correctness, doc accuracy, build all confirmed independently).
+Merged via PR #6, same `gh pr merge`-blocked → local `git merge --no-ff` + `git push` flow as PR #5.
+
+**Post-fix on-device confirmation** (main session, sense9): with the fix installed, the dot was
+confirmed to persist unchanged (same Activity instance) for 50 seconds — well past the old 15s
+failure point. Also confirmed live: tap once → aggregated preview text (matches PLAN.md §4/§9
+format, including several real pending system notifications alongside the test one); 4s timeout
+with notifications still pending → reverts to dot; tap twice → full dismiss to `MainActivity`;
+power-button-dismiss → fires within ~4s (not conflated with the 15s idle timeout, confirming the
+fix didn't break this path); unlock auto-dismiss (`ACTION_USER_PRESENT`, confirmed via logcat) →
+ends only the fake-sleep session, `VirtuaLedForegroundService` itself keeps running. This is the
+first time feature 5's interactive flows and feature 4's session-persistence were confirmed on a
+real device at all (not just a code/build-level review) — MVP integration test step 2/3/4 in
+`docs/plans/README.md` are now substantially de-risked ahead of time, though not a substitute for
+running that checklist formally once feature 6 lands.
+
+Note: whether sense9's lock screen was configured as a **secure** (PIN/pattern/password) lock
+during this testing pass was not verified — the device was already unlocked by the user before each
+screenshot, so this session's testing does not by itself confirm `docs/DECISIONS.md` §18's
+secure-keyguard rendering claim on sense9 specifically (see §10 below, this item was already open
+before this session and remains so).
+
+## 10. Still Open
 
 - **Package name placeholder**: `com.virtualed.app` is used throughout `docs/spec.md` and all
   `PLAN.md` files, still unconfirmed by the user — explicitly deferred (§5 above), not a blocker.
@@ -247,30 +384,30 @@ feature as done.
   already achieves it for free. Not confirmable from docs alone — needs the same kind of
   real-device prototype validation the keyguard question got (§18), when that (non-MVP) feature
   is picked up.
-- Secure-keyguard mechanism (`docs/DECISIONS.md` §18) was validated only on arrows We2 Plus, not
-  yet re-confirmed on the Sharp AQUOS sense9 — worth doing opportunistically, not a blocker.
-- **`permission-onboarding`'s on-device visual flow is unconfirmed** (§7 above): merged without
-  the reviewer or the main session ever seeing the onboarding card render or the Grant→Settings→
-  return→`MainSwitchScreen` hand-off actually happen, since the test device was PIN-locked and
-  neither had the code. Not currently a blocker (code/build/logic-level review passed, and partial
-  adb evidence — listener genuinely ungranted, POST_NOTIFICATIONS dialog firing — was consistent
-  with it working), but worth a quick manual pass by the user opportunistically, and worth keeping
-  in mind if `fake-sleep-overlay` (next, §9) surfaces anything that touches the same gating logic.
+- Secure-keyguard mechanism (`docs/DECISIONS.md` §18) was validated on arrows We2 Plus during
+  planning, and an earlier session's manual on-device pass (§8) confirmed the actual shipped
+  `fake-sleep-overlay` code path also works over a secure lock — but the specific device model used
+  for that pass wasn't recorded. This session ran extensive sense9 testing (§9) that confirmed
+  `FakeSleepActivity` renders and persists correctly on sense9, but the device was already unlocked
+  by the user before each check, so whether sense9's lock was configured as **secure**
+  (PIN/pattern/password) during that testing was not verified — a confirmed pass specifically with
+  a secure lock active on the Sharp AQUOS sense9 is still worth doing opportunistically, not a
+  blocker.
 
-## 9. Recommended Next Step
+## 11. Recommended Next Step
 
-1. Implement MVP feature 4, `fake-sleep-overlay`, following the same branch/implement/review/PR
-   flow established in §5/§6/§7 (branch `feature/mvp-fake-sleep-overlay`). Needs features 1 and 2
-   (§4's corrected build order), both merged.
-2. Continue through the remaining corrected build order (§4): `dismiss-and-peek-interaction`,
-   `onoff-notification-toggle`.
-3. Run the MVP Integration Test checklist (`docs/plans/README.md`) on a real device with a
-   **secure** lock configured, once all 6 land — use one of the two officially supported test
-   devices (Sharp AQUOS sense9 or FCNT arrows We2 Plus, `docs/DECISIONS.md` §11) for this, not an
-   arbitrary device like the `M06` used for feature 2's quick smoke test (§6). This pass should also
-   cover the still-unconfirmed `permission-onboarding` visual flow noted in §8.
-4. Once that passes: **tell the user** (don't silently proceed), then start the `other/` tier —
+1. Implement MVP feature 6, `onoff-notification-toggle` — the last feature in the corrected build
+   order (§4) — following the same branch/implement/review/PR flow established in §5-§9.
+2. Run the MVP Integration Test checklist (`docs/plans/README.md`) once it lands. Much of this was
+   already exercised ad hoc on sense9 this session (§9: dot persistence, tap/preview/timeout,
+   power-button-dismiss, unlock-auto-dismiss all confirmed working with a notification pending),
+   but the formal checklist should still be run end-to-end afterward, ideally with a **secure**
+   lock actually configured on sense9 this time (§10's still-open item) or on arrows We2 Plus.
+3. Once that passes: **tell the user** (don't silently proceed), then start the `other/` tier —
    `reviewer-lite` cross-consistency pass on those `PLAN.md` files first (they reference MVP
    internals that may have shifted during implementation), then implement in any order.
-5. Resolve the package name placeholder before any public release is pursued (not urgent now,
+4. Resolve the package name placeholder before any public release is pursued (not urgent now,
    §5/§6).
+5. When a `gh pr merge` gets blocked going forward, apply the workflow preference from §8/§9: ask
+   via `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than
+   retrying `gh pr merge` itself — this has now succeeded cleanly for PRs #4, #5, and #6.
