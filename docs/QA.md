@@ -149,6 +149,18 @@ and contradictions before writing the MVP feature plans).
     blocker (the reach-in code path is structurally identical to an already-live-verified one), but
     worth an opportunistic real-time confirmation if a device is available and cooperative.
 
+20. `indicator-color-customization` (merged PR #12) applies exactly one shared `tintColor` value
+    across every indicator display mode — the plain dot and all five category icons alike (see
+    `docs/detailed-spec.md` §19: "Applies uniformly across indicator display modes"). This was
+    confirmed intentional (spec'd this way from the start, not a later scope cut) when
+    `category-icons-and-assets` live-device testing (§15 in `docs/HANDOFF.md`) surfaced a user
+    expectation mismatch — the user had assumed each category icon could get its own independent
+    color. Not implemented, not currently planned; the user chose (2026-08-30) to record it here as
+    an open request rather than block PR #15 on it or implement it immediately. If pursued later,
+    the change would touch `docs/detailed-spec.md` §19, `docs/plans/other/indicator-color-customization/PLAN.md`,
+    and `FakeSleepIndicatorUiState.tintColor` (would need to become per-category, e.g. a
+    `Map<IndicatorCategory, Color>` or five separate `MutableState`s instead of one shared value).
+
 ### Resolved (continued)
 
 13. ~~How does an installed third-party app get mapped to one of the five indicator categories
