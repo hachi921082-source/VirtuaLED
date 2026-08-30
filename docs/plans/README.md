@@ -94,6 +94,12 @@ the `other/` tier in this order:
   and `MATCH_DEFAULT_ONLY` silently excluding real launcher apps like Rakuten Link from the
   picker) — see `docs/HANDOFF.md` §15 for the full writeup. `docs/QA.md` #20 records one related,
   deliberately-deferred request (per-category tint color) that surfaced during this testing.
+- `source-app-icon-indicator-mode` — **spec only, no PLAN.md yet.** New premium feature (freemium
+  monetization direction, `docs/DECISIONS.md` §22): shows the notifying app's own launcher icon
+  instead of the fixed category icon set, gated by a local `isPremiumUnlocked` flag defaulting to
+  unlocked ahead of real billing. Spec'd in `docs/detailed-spec.md` §20 (feature) and §21 (gating
+  mechanism); per-category tint color (`docs/QA.md` #20) was considered as an alternative premium
+  feature and deprioritized in favor of this one. Needs a `PLAN.md` written before implementation.
 - [`burn-in-protection`](other/burn-in-protection/PLAN.md) — Done (implemented, reviewed, merged
   PR #11). Adds `BurnInProtector` and `FakeSleepIndicatorUiState.indicatorOffset`, gated on
   session-active/`OverlayUiState`/proximity-covered via a combined `recompute()`
@@ -147,9 +153,13 @@ the `other/` tier in this order:
   toggle doesn't live-refresh mid-session (same non-blocking class of gap as #18).
 - [`localization-additional-languages`](other/localization-additional-languages/PLAN.md)
 - [`phone-call-overlay-suppression`](other/phone-call-overlay-suppression/PLAN.md)
-- [`indicator-color-customization`](other/indicator-color-customization/PLAN.md) — Done
-  (implemented, reviewed, merged PR #12). Replaces `fake-sleep-overlay`'s hardcoded white default
-  with `IndicatorColorSettings` (DataStore) + an inline palette/HEX picker in `MainSwitchScreen`
-  (no separate settings screen — this app has no navigation component, same convention already
-  used for the DND/battery settings). Live color changes propagate to an active session via
-  `FakeSleepActivityHolder.indicatorUiState?.tintColor` independent of persistence.
+- [`indicator-color-customization`](other/indicator-color-customization/PLAN.md) — Originally done
+  (implemented, reviewed, merged PR #12) as an 8-swatch palette + HEX field. Replaces
+  `fake-sleep-overlay`'s hardcoded white default with `IndicatorColorSettings` (DataStore) + an
+  inline palette/HEX picker in `MainSwitchScreen` (no separate settings screen — this app has no
+  navigation component, same convention already used for the DND/battery settings). Live color
+  changes propagate to an active session via `FakeSleepActivityHolder.indicatorUiState?.tintColor`
+  independent of persistence. **Needs a follow-up revision, tracked as
+  [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17), not yet implemented**:
+  reduce to 5 presets and remove the HEX field entirely (`docs/DECISIONS.md` §23, `PLAN.md` §3/§4)
+  — code change to `ColorPickerSection` in `MainActivity.kt` still pending.

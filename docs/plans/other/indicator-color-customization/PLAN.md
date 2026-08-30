@@ -12,7 +12,7 @@ that plan's default remains the fallback value here (§2), not a separately-main
 1. Module Structure
 2. Data Structure and Default
 3. Settings UI
-4. HEX Input Validation
+4. HEX Input Validation (Removed)
 5. Render-Time Tint Application
 6. Cross-Feature Touchpoints
 
@@ -40,22 +40,31 @@ object IndicatorColorSettings {
 
 ## 3. Settings UI
 
-Compose screen: a row of preset palette swatches (e.g. white, red, orange, yellow, green, cyan,
-blue, purple — a fixed preset list, exact colors an implementation-time visual-design detail, not a
-product decision) plus a HEX text field for free-form input, with a live preview swatch showing the
-currently-selected color. Selecting a preset swatch writes its value directly; typing in the HEX
-field writes on successful parse (§4).
+Compose screen: a row of exactly 5 preset color swatches (fixed list, exact colors an
+implementation-time visual-design detail, not a product decision), with a live preview swatch
+showing the currently-selected color. Selecting a preset swatch writes its value directly. No
+free-form HEX input (see §4 — removed).
 
-## 4. HEX Input Validation
+## 4. HEX Input Validation (Removed)
 
-```kotlin
-fun parseHexColorOrNull(input: String): Int? =
-    runCatching { Color.parseColor(if (input.startsWith("#")) input else "#$input") }.getOrNull()
-```
+**Revision (2026-08-30), tracked as [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17), see `docs/DECISIONS.md` §23**: the HEX text field and the wider
+(originally 8-swatch) preset palette described in earlier versions of this plan are removed.
+Rationale: once color no longer needs to vary per icon (`docs/DECISIONS.md` §22 chose
+source-app-icon display over per-category color), a single shared indicator color doesn't need
+free-form input or 8 choices — and the wider row/text-field combination risked the same
+wrap/scroll layout inconsistency the project's own `category-icons-and-assets` bug hunt already hit
+for a comparable row (`docs/HANDOFF.md` §15, item 3).
 
-Accepts both `#RRGGBB` and `#AARRGGBB` (via `android.graphics.Color.parseColor`'s existing support
-for both forms). Invalid input (parse failure) leaves the persisted color unchanged and shows an
-inline validation error — no persistence write on invalid input.
+This is a revision to an already-shipped feature (merged PR #12), not new-feature work — the
+implementing session needs to update `ColorPickerSection` (`MainActivity.kt`) to drop the HEX
+`TextField` and reduce the swatch list to 5, and remove `parseHexColorOrNull`'s UI call site
+(`com.virtualed.app.data.IndicatorColorSettings.kt`; the function itself can be deleted unless kept
+for validating a pre-existing persisted value, an implementation-time judgment call). A previously
+HEX-set custom color already persisted on a user's device before this revision ships will simply
+render as whatever `IndicatorColorSettings.getColorArgb()` returns — no migration needed, since the
+persisted value is still a plain ARGB int regardless of how it was originally entered; the settings
+UI will just no longer show a swatch highlighted as "selected" for a value outside the 5 presets,
+which is cosmetic only.
 
 ## 5. Render-Time Tint Application
 

@@ -23,6 +23,8 @@
 17. Foreground Service Startup Model
 18. Notification Action Toggle (FGS Notification)
 19. Indicator Color Customization
+20. Source-App Icon Indicator Mode
+21. Premium Feature Gating (Pre-Billing)
 
 ## 1. Fake-Sleep Overlay Mechanism
 
@@ -325,10 +327,65 @@ service to hold any special background-launch allowance itself.
 
 ## 19. Indicator Color Customization
 
-- Settings UI: a color picker (palette swatches) plus a HEX-input text field, so the user can set
-  the indicator's display color freely.
+- Settings UI: a row of exactly 5 preset color swatches — no free-form HEX/text input. Reduced
+  from an original wider palette plus HEX field; see `docs/DECISIONS.md` §23 for why.
+- Presets: the exact 5 colors are an implementation-time visual-design detail, not a product
+  decision.
 - Persistence: stored via DataStore/SharedPreferences alongside other settings.
 - Applied at draw time: `ImageView.setColorFilter()` for the View-based overlay indicator (or the
   equivalent Compose `Color` tint if the indicator is rendered in Compose), using the persisted
   color value. Applies uniformly across indicator display modes (simple dot and per-category
   icons, see §3).
+- Does **not** apply to the source-app icon indicator mode (§20) — a real app icon is a multi-color
+  image; a single-color filter would defeat the purpose of showing it. `tintColor` continues to
+  apply only to the plain dot and the fixed category icon set.
+
+## 20. Source-App Icon Indicator Mode
+
+Premium feature — see `docs/DECISIONS.md` §22 for the monetization background and §21 below for
+the gating mechanism.
+
+- New setting: "Show app's own icon" boolean, default `false` (opt-in even once unlocked, since
+  it's a bigger visual departure from the fixed dot/category-icon look than a color change).
+  Forced off when `isPremiumUnlocked` (§21) is `false`, regardless of this setting's stored value.
+- Icon source: `PackageManager.getApplicationIcon(packageName)`, where `packageName` is the same
+  most-recently-posted-notification's source app already resolved for category lookup (§3's
+  existing recompute path) — no new plumbing needed to obtain it.
+- Rendering: drawn at the same size as the plain dot / category icon, scaled to fit. Not tinted by
+  `tintColor` (§19, see the note added there).
+- Fallback: if the source app's icon can't be resolved (app uninstalled since the notification
+  posted, `NameNotFoundException`, etc.), fall back to the existing category icon / dot rendering
+  for that slot — never a broken or blank indicator.
+- Interaction with categories (§3): this mode replaces the category *icon* for rendering, but does
+  not remove or change the underlying per-app category assignment — a category is still resolved
+  and remains available to other consumers.
+- **Interaction with `multi-notification-stacking`** (resolved 2026-08-30, by reading the
+  already-implemented `IndicatorSlotBuilder.kt`, not just its `PLAN.md`): grouping there is
+  strictly per-app (`pending.groupBy { it.packageName }`), so each of the up to 4 real slots
+  already maps 1:1 to exactly one app — no ambiguity for those slots. Two concrete follow-ups this
+  implies:
+  - `IndicatorSlotUiState` (`FakeSleepIndicatorUiState.kt`) does not currently carry a
+    `packageName` field — `IndicatorSlotBuilder.build()` resolves `pkg` per group but only uses it
+    for `category`, discarding it afterward. This mode needs `packageName` added to that data
+    class and written through in `build()` — a small, additive change, not a redesign.
+  - The 5th-and-beyond "OTHER" overflow slot represents multiple apps combined, so it has no single
+    representative app icon. This mode must always fall back to the existing category icon (OTHER)
+    or dot for that specific slot, regardless of whether app-icon mode is enabled — the other (up
+    to 4) real slots are unaffected by this fallback.
+
+## 21. Premium Feature Gating (Pre-Billing)
+
+- Mechanism: one process-wide `PremiumState` (mirrors the existing `FeatureEnabledState`/
+  `DndState` in-memory-singleton-plus-DataStore-cache pattern) exposing `isPremiumUnlocked():
+  Boolean`.
+- Persistence: DataStore boolean (e.g. key `premium_unlocked`).
+- Default value: `true` (unlocked) — see `docs/DECISIONS.md` §22 for why: no real billing exists
+  yet, so defaulting to unlocked lets §20 be fully built, reviewed, and tested on-device now,
+  without a paywall UI or purchase flow blocking that work.
+- Consumers: currently only §20 checks this flag. Any future premium feature should read the same
+  `PremiumState`, not introduce a second flag.
+- Explicitly out of scope here (deferred — see `docs/DECISIONS.md` §22 and `docs/QA.md` #22):
+  Google Play Billing Library integration, purchase verification, restore-purchase flow, and
+  pricing/tiering mechanics. When that work happens, only the code that writes `PremiumState`'s
+  persisted value changes (from a hardcoded default to a verified purchase result) — no consumer
+  of `isPremiumUnlocked()` needs to change.
