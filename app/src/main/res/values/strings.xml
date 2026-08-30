@@ -91,6 +91,9 @@
     <string name="exclusion_settings_title">除外設定</string>
     <string name="exclusion_settings_back_button">戻る</string>
     <string name="exclusion_settings_description">ONにしたアプリの通知はインジケーターに一切表示されません</string>
+    <string name="exclusion_settings_filter_seen">通知してきたアプリのみ</string>
+    <string name="exclusion_settings_filter_all">すべて</string>
+    <string name="exclusion_settings_seen_empty">まだ通知を受け取ったアプリはありません</string>
 
     <!-- docs/plans/other/multi-notification-stacking/PLAN.md §5 -->
     <string name="settings_show_count_badge">通知件数バッジを表示する</string>

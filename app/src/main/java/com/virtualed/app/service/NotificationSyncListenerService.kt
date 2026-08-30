@@ -9,7 +9,13 @@ import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.DndState
 import com.virtualed.app.data.PendingNotificationInfo
 import com.virtualed.app.data.PendingNotificationsRepository
+import com.virtualed.app.data.SeenAppsHistory
 import com.virtualed.app.overlay.FakeSleepActivityHolder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * システムの通知リスナーとしてバインドされ、通知の投稿/削除を
@@ -21,8 +27,14 @@ import com.virtualed.app.overlay.FakeSleepActivityHolder
  */
 class NotificationSyncListenerService : NotificationListenerService() {
 
+    // issue #27 — SeenAppsHistory.record() (suspend) を呼ぶためのスコープ。
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return // §4 — 自アプリの FGS 通知を除外
+        // issue #27 — 除外の有無に関わらず「通知してきたアプリ」として記録する
+        // (ExclusionSettingsScreen の絞り込み表示のデータソース)。
+        serviceScope.launch { SeenAppsHistory.record(applicationContext, sbn.packageName) }
         // issue #26 — 除外設定されたアプリの通知はここで完全に握りつぶす。
         // PendingNotificationsRepository へ一切追加しないため、スロット描画・セッション開始・
         // プレビューテキストのいずれにも影響しない (category/keyword の除外とは異なり、
@@ -38,15 +50,26 @@ class NotificationSyncListenerService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        val activeOthers = activeNotifications.filter { it.packageName != packageName }
+        // issue #27 — 再接続時点でアクティブな通知の送信元アプリも記録する
+        // (バインドが切れていた間に届いた通知の送信元を取りこぼさないため)。
+        activeOthers.forEach { sbn ->
+            serviceScope.launch { SeenAppsHistory.record(applicationContext, sbn.packageName) }
+        }
         // §5 resync — 初回バインド時、および OS/プロセスキルからのリスナー再接続時に
         // 保留中通知の集合をアクティブな通知一覧から再構築する (空とは仮定しない)
-        val active = activeNotifications
-            .filter { it.packageName != packageName && it.packageName !in AppExclusionSettings.excludedCache }
+        val active = activeOthers
+            .filter { it.packageName !in AppExclusionSettings.excludedCache }
             .map { it.toPendingInfo(this) }
         PendingNotificationsRepository.replaceAll(active)
 
         // docs/plans/other/dnd-handling/PLAN.md §3 — 再接続時点の DND 状態で初期化する。
         DndState.setActive(currentInterruptionFilter != INTERRUPTION_FILTER_ALL)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.cancel()
     }
 
     // docs/plans/other/dnd-handling/PLAN.md §3, §5。
