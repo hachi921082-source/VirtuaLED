@@ -1,3 +1,6 @@
 # Resolved Issues
 
 <!-- Log of closed GitHub issues: number, title, labels, PR link. -->
+
+- **[#23](https://github.com/hachi921082-source/VirtuaLED/issues/23)** — Burn-in reposition can push
+  the indicator group partly off-screen. No labels. Fixed via [PR #25](https://github.com/hachi921082-source/VirtuaLED/pull/25).
