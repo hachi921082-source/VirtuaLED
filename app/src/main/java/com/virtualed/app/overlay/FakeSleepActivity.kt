@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.virtualed.app.R
 import com.virtualed.app.category.IndicatorCategory
+import com.virtualed.app.data.CountBadgeSettings
 import com.virtualed.app.data.IndicatorColorSettings
 import com.virtualed.app.data.PendingNotificationsRepository
 import kotlin.math.roundToInt
@@ -48,6 +49,13 @@ import kotlinx.coroutines.launch
 // (ユーザー確認・実機調整)。
 private const val INDICATOR_DOT_SIZE_DP = 24
 
+// 2x2 グリッド内の各スロット間ギャップ (dp)。スロットが1件のみの場合は index==0 のみ描画される
+// ため実質ノーオペレーション (docs/plans/other/multi-notification-stacking/PLAN.md §4)。
+private const val QUADRANT_GAP_DP = INDICATOR_DOT_SIZE_DP + 8
+
+// 件数バッジの直径 (dp)。CountBadgeSettings 有効時のみ描画する (同 PLAN.md §5)。
+private const val COUNT_BADGE_SIZE_DP = 16
+
 /**
  * フェイクスリープ中に表示される全画面 Activity。
  * setShowWhenLocked/setTurnScreenOn により、secure/非secure問わずロック画面の上に表示する
@@ -57,12 +65,14 @@ private const val INDICATOR_DOT_SIZE_DP = 24
  * docs/plans/mvp/fake-sleep-overlay/PLAN.md §5、
  * docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md §3〜§6 を実装。
  *
- * MVP スコープ: 黒背景 + 単一ドット、および PeekInteractionController による
+ * MVP スコープ: 黒背景、および PeekInteractionController による
  * ドット/プレビューテキストのコンテンツ view トグルのみ。位置は BurnInProtector が一定間隔で
  * ランダムに再配置し (docs/plans/other/burn-in-protection/PLAN.md)、色はユーザー設定の
  * 永続化色 (デフォルト白) を反映する (docs/plans/other/indicator-color-customization/PLAN.md)。
- * 複数アイコンの視覚的レイアウト・座標ベースのヒットテストは対象外
- * (docs/plans/other/multi-notification-stacking/)。
+ * 最大4件までのスロットを固定2x2グリッドで並べ、5件目以降は OTHER オーバーフロースロットへ
+ * 集約する (docs/plans/other/multi-notification-stacking/PLAN.md §3/§4)。座標ベースの
+ * ヒットテストは引き続き対象外 — タップ判定は位置非依存のまま
+ * (docs/plans/mvp/dismiss-and-peek-interaction/PLAN.md §3)。
  */
 class FakeSleepActivity : ComponentActivity() {
     // Service 起動時に1回だけ生成されるため、この Activity が存在する時点では常に非 null
@@ -215,16 +225,15 @@ private fun FakeSleepContent(
 
 /**
  * インジケータースロットグループの位置決めコンテナ。画面左上を基準とする絶対座標系で、
- * offsetState (BurnInProtector が書き換える) の値だけドットをずらして描画する
- * (docs/plans/other/burn-in-protection/PLAN.md §3)。複数スロットのグリッドレイアウトは対象外
- * (docs/plans/other/multi-notification-stacking/) — MVP と同じ単一スロットを
- * オフセット付きで描画するのみ。色は tintColorState (ユーザー設定の永続化色、
- * デフォルト白) から取る (docs/plans/other/indicator-color-customization/PLAN.md §5)。
- * 高重要度スロットは 1.5x スケールで描画し、blinkIntervalMsState が非 null の間は
- * その間隔でオン/オフを繰り返す (docs/plans/other/importance-based-sizing/PLAN.md §6)。
- * slot.category が非 null ならカテゴリアイコンを、null なら従来どおりプレーンな円 (ドット) を
- * 描画する — 円描画は未割り当てが実装される前の MVP 既定表示であり、フォールバックとして残す
- * (docs/plans/other/category-icons-and-assets/PLAN.md §5)。
+ * offsetState (BurnInProtector が書き換える) の値だけグループ全体をずらして描画する
+ * (docs/plans/other/burn-in-protection/PLAN.md §3)。最大4件までのスロットを固定2x2グリッドの
+ * 各象限へ配置する — スロットが1件のみなら quadrantOffset(0) は常にノーオペレーションのため、
+ * 単一通知時の見た目は従来と完全に同一 (docs/plans/other/multi-notification-stacking/PLAN.md §4、
+ * MAX_SLOTS==1 の縮退ケース)。色は tintColorState (ユーザー設定の永続化色、デフォルト白) から
+ * 取る (docs/plans/other/indicator-color-customization/PLAN.md §5)。点滅は blinkIntervalMsState
+ * が非 null の間、グループ全体で同期して行う — スロット単位ではない
+ * (docs/plans/other/importance-based-sizing/PLAN.md §7)。高重要度・カテゴリアイコン/プレーンな円
+ * フォールバック・件数バッジは SlotIcon に委ねる (§5/§6)。
  */
 @Composable
 private fun IndicatorGroup(
@@ -233,7 +242,7 @@ private fun IndicatorGroup(
     slotsState: MutableState<List<IndicatorSlotUiState>>,
     blinkIntervalMsState: MutableState<Long?>,
 ) {
-    val slot = slotsState.value.firstOrNull() ?: IndicatorSlotUiState()
+    val slots = slotsState.value
     val blinkIntervalMs = blinkIntervalMsState.value
 
     // ハードなオン/オフ切り替えのみ (フェード/補間は行わない — PLAN.md はそこまで要求していない)。
@@ -253,30 +262,68 @@ private fun IndicatorGroup(
         }
     }
 
-    val dotSizeDp = if (slot.highImportance) INDICATOR_DOT_SIZE_DP * 1.5f else INDICATOR_DOT_SIZE_DP.toFloat()
-    val category = slot.category
     Box(modifier = Modifier.fillMaxSize()) {
         if (blinkVisible) {
-            if (category != null) {
-                // Image + ColorFilter.tint() は View 側の ImageView.setColorFilter() の
-                // Compose 版相当 (PLAN.md §2/§6 が指定する着色経路)。androidx.compose.material3.Icon
-                // は tint 引数しか持たず内部変換が暗黙的なため、ここでは明示的に Image + colorFilter
-                // を使う。
-                Image(
-                    painter = painterResource(category.drawableRes()),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(tintColorState.value),
+            slots.forEachIndexed { index, slot ->
+                SlotIcon(
+                    slot = slot,
+                    tintColor = tintColorState.value,
                     modifier = Modifier
                         .offset { offsetState.value }
-                        .size(dotSizeDp.dp),
+                        .quadrantOffset(index),
                 )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .offset { offsetState.value }
-                        .size(dotSizeDp.dp)
-                        .background(tintColorState.value, CircleShape),
-                )
+            }
+        }
+    }
+}
+
+// 固定2x2グリッド内での象限オフセット。index==0 (単一スロット MVP のケースを含む) は常に
+// (0dp, 0dp) のためノーオペレーション (docs/plans/other/multi-notification-stacking/PLAN.md §4)。
+private fun Modifier.quadrantOffset(index: Int): Modifier = this.offset(
+    x = if (index % 2 == 0) 0.dp else QUADRANT_GAP_DP.dp,
+    y = if (index < 2) 0.dp else QUADRANT_GAP_DP.dp,
+)
+
+/**
+ * インジケータースロット1件分の描画。slot.category が非 null ならカテゴリアイコンを、null なら
+ * 従来どおりプレーンな円 (ドット) を描画する — 円描画は未割り当てが実装される前の MVP 既定表示で
+ * あり、フォールバックとして残す (docs/plans/other/category-icons-and-assets/PLAN.md §5)。
+ * 高重要度スロットは 1.5x スケールで描画する (docs/plans/other/importance-based-sizing/PLAN.md §6)。
+ * CountBadgeSettings が有効かつ count > 1 の場合のみ、右上コーナーに件数バッジを重ねる
+ * (デフォルト OFF、docs/plans/other/multi-notification-stacking/PLAN.md §5)。
+ */
+@Composable
+private fun SlotIcon(slot: IndicatorSlotUiState, tintColor: Color, modifier: Modifier) {
+    val dotSizeDp = if (slot.highImportance) INDICATOR_DOT_SIZE_DP * 1.5f else INDICATOR_DOT_SIZE_DP.toFloat()
+    val category = slot.category
+    Box(modifier = modifier) {
+        if (category != null) {
+            // Image + ColorFilter.tint() は View 側の ImageView.setColorFilter() の
+            // Compose 版相当 (PLAN.md §2/§6 が指定する着色経路)。androidx.compose.material3.Icon
+            // は tint 引数しか持たず内部変換が暗黙的なため、ここでは明示的に Image + colorFilter
+            // を使う。
+            Image(
+                painter = painterResource(category.drawableRes()),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(tintColor),
+                modifier = Modifier.size(dotSizeDp.dp),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(dotSizeDp.dp)
+                    .background(tintColor, CircleShape),
+            )
+        }
+        if (CountBadgeSettings.enabledCached && slot.count > 1) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(COUNT_BADGE_SIZE_DP.dp)
+                    .background(Color.Red, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = slot.count.toString(), color = Color.White)
             }
         }
     }
