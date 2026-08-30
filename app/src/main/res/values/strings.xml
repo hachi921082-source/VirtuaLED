@@ -36,10 +36,8 @@
     <string name="settings_quiet_hours_start_button">開始: %1$02d:%2$02d</string>
     <string name="settings_quiet_hours_end_button">終了: %1$02d:%2$02d</string>
 
-    <!-- docs/plans/other/indicator-color-customization/PLAN.md §3 -->
+    <!-- docs/plans/other/indicator-color-customization/PLAN.md §3 (HEX入力欄は §4 で廃止) -->
     <string name="settings_indicator_color_label">インジケーターの色</string>
-    <string name="settings_indicator_color_hex_label">HEX (例: #FF0000)</string>
-    <string name="settings_indicator_color_hex_error">無効なHEXコードです</string>
 
     <!-- docs/plans/other/importance-based-sizing/PLAN.md §5 -->
     <string name="settings_blink_interval_label">高重要度時の点滅間隔: %1$dms</string>
