@@ -56,17 +56,43 @@ Beyond 4 distinct-app slots, the remainder collapse into one "other" overflow sl
 object IndicatorSlotBuilder {
     const val MAX_SLOTS = 4
 
-    fun build(pending: List<PendingNotificationInfo>, categoryMapper: CategoryMapper): List<IndicatorSlotUiState> {
+    fun build(
+        pending: List<PendingNotificationInfo>,
+        categoryMapper: CategoryMapper,
+        keywordsByApp: (String) -> List<String>,
+    ): List<IndicatorSlotUiState> {
         val perApp = pending.groupBy { it.packageName }.map { (pkg, list) ->
-            IndicatorSlotUiState(category = categoryMapper.resolve(pkg), count = list.size)
+            IndicatorSlotUiState(
+                category = categoryMapper.resolve(pkg),
+                count = list.size,
+                highImportance = list.any { info ->
+                    val keywords = keywordsByApp(pkg)
+                    keywords.isNotEmpty() &&
+                        keywords.any { matchesKeyword("${info.title.orEmpty()} ${info.text.orEmpty()}", it) }
+                },
+            )
         }
         if (perApp.size <= MAX_SLOTS) return perApp
         val kept = perApp.take(MAX_SLOTS - 1)
-        val overflowCount = perApp.drop(MAX_SLOTS - 1).sumOf { it.count }
-        return kept + IndicatorSlotUiState(category = IndicatorCategory.OTHER, count = overflowCount)
+        val overflow = perApp.drop(MAX_SLOTS - 1)
+        return kept + IndicatorSlotUiState(
+            category = IndicatorCategory.OTHER,
+            count = overflow.sumOf { it.count },
+            highImportance = overflow.any { it.highImportance },
+        )
     }
 }
 ```
+
+**Implementation note**: `com.virtualed.app.importance.ImportanceResolver.isHighImportance()` (added by
+`importance-based-sizing`) currently returns one aggregate `Boolean` for the whole pending list — its
+own doc comment already labels this an MVP-scoped simplification for the single-indicator case. This
+plan needs per-app importance instead, so `IndicatorSlotBuilder.build()` above calls the already-public
+`matchesKeyword()` (same file) directly per app rather than adding a new `ImportanceResolver` method —
+no signature change to `ImportanceResolver` itself is required. `FakeSleepSessionController.
+recomputeIndicatorState()`'s existing whole-snapshot `ImportanceResolver.isHighImportance()` call (used
+only for `blinkIntervalMs`, which stays a single group-wide value per §7 below) is unaffected and does
+not need to change.
 
 ## 4. Layout (Grid Placement)
 
@@ -138,7 +164,9 @@ fun updateIndicatorSlots(
     pending: List<PendingNotificationInfo>,
     categoryMapper: CategoryMapper,
 ) {
-    uiState.slots.value = IndicatorSlotBuilder.build(pending, categoryMapper)
+    uiState.slots.value = IndicatorSlotBuilder.build(pending, categoryMapper) { pkg ->
+        KeywordRegistry.keywordsCache[pkg] ?: emptyList()
+    }
 }
 ```
 
