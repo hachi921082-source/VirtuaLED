@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -30,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.virtualed.app.R
 import com.virtualed.app.data.AppExclusionSettings
+import com.virtualed.app.data.SeenAppsHistory
 import kotlinx.coroutines.launch
 
 /**
@@ -44,6 +47,11 @@ import kotlinx.coroutines.launch
  * (展開操作を挟まない)。選択は「保存」ボタンを持たず、切り替えと同時に
  * AppExclusionSettings.setExcluded() へ書き込む (この画面以外の設定項目と同じ
  * write-through 方式)。
+ *
+ * GitHub issue #27 — 「すべて」/「通知してきたアプリのみ」の絞り込みチップを追加。
+ * 全インストール済みアプリの一覧は実際に通知しないアプリも多く探しにくいため、
+ * SeenAppsHistory (一度でも通知してきた packageName の記録) で絞り込んだビューを既定表示にする
+ * (新規の別画面は作らず、同じ ExclusionSettingsScreen 内の表示切替とした — issue #27 参照)。
  */
 @Composable
 fun ExclusionSettingsScreen(onBack: () -> Unit) {
@@ -61,6 +69,20 @@ fun ExclusionSettingsScreen(onBack: () -> Unit) {
     var excludedPackages by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(Unit) {
         excludedPackages = AppExclusionSettings.excludedCache
+    }
+
+    // issue #27 — 同じ理由で SeenAppsHistory.seenCache も画面表示用に都度読み直す。
+    var seenPackages by remember { mutableStateOf<Set<String>>(emptySet()) }
+    LaunchedEffect(Unit) {
+        seenPackages = SeenAppsHistory.seenCache
+    }
+
+    // 発見しやすさが issue #27 の目的そのものなので、既定は「通知してきたアプリのみ」。
+    var showSeenOnly by remember { mutableStateOf(true) }
+    val displayedApps = if (showSeenOnly) {
+        installedApps.filter { it.packageName in seenPackages }
+    } else {
+        installedApps
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -86,8 +108,29 @@ fun ExclusionSettingsScreen(onBack: () -> Unit) {
                 text = stringResource(R.string.exclusion_settings_description),
                 modifier = Modifier.padding(top = 12.dp),
             )
+            Row(modifier = Modifier.padding(top = 12.dp)) {
+                Button(
+                    onClick = { showSeenOnly = true },
+                    colors = if (showSeenOnly) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
+                    modifier = Modifier.padding(end = 4.dp),
+                ) {
+                    Text(text = stringResource(R.string.exclusion_settings_filter_seen))
+                }
+                Button(
+                    onClick = { showSeenOnly = false },
+                    colors = if (!showSeenOnly) ButtonDefaults.buttonColors() else ButtonDefaults.outlinedButtonColors(),
+                ) {
+                    Text(text = stringResource(R.string.exclusion_settings_filter_all))
+                }
+            }
+            if (showSeenOnly && displayedApps.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.exclusion_settings_seen_empty),
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
             LazyColumn(modifier = Modifier.padding(top = 4.dp)) {
-                items(installedApps) { app ->
+                items(displayedApps) { app ->
                     val isExcluded = app.packageName in excludedPackages
                     Row(
                         modifier = Modifier
