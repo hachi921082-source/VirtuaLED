@@ -29,8 +29,10 @@
 18. PR #18 Merged, `source-app-icon-indicator-mode` and Issue #17 Shipped, a Generic Live-Refresh
     Fix, QA #17 Resolved, a Live QA #16 Investigation, and a Long Settings-Screen UI Overhaul
     (Follow-Up Session)
-19. Still Open
-20. Recommended Next Step
+19. Issue #23 Fixed (PR #25), a Notification-Exclusion Feature Scoped and Split into Issues
+    #26/#27, and Issue #26 Implemented and Merged (PR #28) (Follow-Up Session)
+20. Still Open
+21. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -1131,18 +1133,37 @@ never nudge or suggest picking up `docs/QA.md` #22 (the real premium-gating mech
 it is deliberately the last item on this project's roadmap and the user does not want it raised
 proactively, only answered if asked about directly.
 
-## 19. Still Open
+## 19. Issue #23 Fixed (PR #25), a Notification-Exclusion Feature Scoped and Split into Issues #26/#27, and Issue #26 Implemented and Merged (PR #28) (Follow-Up Session)
+
+This session opened by reading the previous handoff, then implemented **[Issue #23](https://github.com/hachi921082-source/VirtuaLED/issues/23)** (burn-in reposition can push the indicator off-screen) directly in the main session — no `developer-lite`/`reviewer-lite`, per the established precedent for small, well-understood fixes (§18) — since the issue itself already pinned the root cause and fix direction.
+
+**Issue #23 fix** (branch `fix/burn-in-bounds`): `BurnInProtector`'s fixed `slotGroupSizePx: Int` (a single hardcoded icon size, computed once at `FakeSleepActivity.onCreate()`) was replaced with `footprintPx: () -> IndicatorFootprint`, re-evaluated on every reposition jump the same way `screenBoundsPx` already was. `FakeSleepActivity.computeIndicatorFootprintPx()` derives the real current footprint from `slots.value` — column/row count from slot count, `highImportance`'s 1.5x scale, and the count badge's corner overhang (added as a separate `topInsetPx`, since the badge's upward overhang shrinks the *minimum* y a jump can land at, not the maximum). `docs/plans/other/burn-in-protection/PLAN.md`'s implementation note was updated to match. Build verified (`assembleDebug`), merged via PR #25 with no classifier block, issue auto-closed by the PR's `Closes #23`. `docs/RESOLVED-ISSUES.md` got its first-ever entry this session (the file had existed as an empty stub since project start) and `docs/plans/README.md`'s burn-in-protection row was updated from "not yet fixed" to fixed.
+
+A live on-device verification pass was started (Wi-Fi adb to arrows We2 Plus / `M06`: confirmed notification-listener access and `POST_NOTIFICATIONS` already granted, confirmed the foreground service started after the user toggled the in-app switch ON) but was called off mid-setup — the user clarified issue #23 was already considered done and didn't need the extra device pass. No negative finding; simply not completed. Two devices were connected via adb this session: `SH-M26` (sense9, USB) and `M06` (arrows We2 Plus, Wi-Fi, appearing under two transport IDs simultaneously). Neither this session's Bash nor PowerShell had `adb` on `PATH`; the full path (`C:\Users\m9112\AppData\Local\Android\Sdk\platform-tools\adb.exe`) had to be used directly — worth remembering for future sessions in this environment.
+
+**Notification-exclusion feature scoped and split** (discussed directly with the user, not delegated): the user asked whether a per-app "don't notify me for this app" exclusion could be added, ideally selectable straight from an actual received notification. Assessed as two separable halves — (A) a settings-screen app-picker exclusion (small, mirrors `CategorySettings`'s existing pattern) vs. (B) excluding directly from a real received notification (needs a new "seen apps" persisted history mechanism that doesn't exist anywhere yet, plus a new UI surface — closer to `category-icons-and-assets`' scale). Doing both together was judged too large for this project's lightweight `fix/<slug>` Issue→PR flow (`~/.claude/shared/dev-workflow.md` §2). At the user's request, split into two GitHub issues: **[#26](https://github.com/hachi921082-source/VirtuaLED/issues/26)** (the settings-picker version, self-contained) and **[#27](https://github.com/hachi921082-source/VirtuaLED/issues/27)** (the from-a-real-notification version, explicitly deferred, marked as depending on #26, with its "seen apps" persistence/UI design left open rather than guessed at).
+
+**Issue #26 implemented and merged** (branch `fix/app-exclusion-setting`, again directly in the main session, matching #23's precedent): new `AppExclusionSettings` (per-app DataStore boolean, mirrors `CategorySettings`'s persistence pattern, with the same synchronous-cache-plus-`refreshCache()` shape). Gated at the earliest possible point — `NotificationSyncListenerService.onNotificationPosted()` and its `onListenerConnected()` resync — so an excluded app's notification never reaches `PendingNotificationsRepository` at all, unlike category/keyword assignment (which only changes a slot's appearance, not whether it exists). `VirtuaLedForegroundService.onCreate()` refreshes the new cache at startup, matching the majority cache-refresh pattern already used for `CategorySettings`/`KeywordRegistry`/etc. (not the stricter await-before-registering pattern used for `DndSettings`/`BatteryThresholdSettings` — accepted as a known, low-severity race window consistent with `docs/DECISIONS.md` §24's existing tolerance for this class of gap, not fixed proactively). New `ExclusionSettingsScreen` reuses the shared `InstalledAppPicker` (like `CategorySettingsScreen`/`KeywordSettingsScreen`) but renders a direct per-app `Switch` with no accordion, since exclusion is a plain boolean rather than category's multi-choice pick. Wired into `MainSwitchScreen` via a new navigation row. 4 new `strings.xml` keys added (`settings_exclusion_settings_row_label`, `exclusion_settings_title`, `exclusion_settings_back_button`, `exclusion_settings_description`) — flagged per the standing memory rule for `localization-additional-languages`. Build verified, installed on `M06`, merged via PR #28 with no classifier block, issue auto-closed, `docs/RESOLVED-ISSUES.md` updated.
+
+**Not yet done**: the user had not confirmed on-device that excluding an app via the new screen actually suppresses its notifications before asking to commit/PR/merge — the APK was installed on `M06` but no confirmation was reported back. Treat this as an open on-device verification item, not a known defect.
+
+## 20. Still Open
 
 - **`localization-additional-languages`** is now the only feature remaining from the original
   10-item `other/`-tier list (§12) — not started. Per its own plan's design, it should track
   whatever `strings.xml` keys exist at implementation time, and this session's UI overhaul (§18)
   added/renamed a substantial number of them — see the new memory rule (§18) about flagging new
   keys, and expect to sweep the *current* `strings.xml` rather than one from an earlier handoff.
-- **[Issue #23](https://github.com/hachi921082-source/VirtuaLED/issues/23)** — burn-in
-  protection's reposition bounds use a single hardcoded icon size and can push part of the
-  indicator off-screen once the real rendered footprint (multi-slot grid, 1.5x high-importance
-  scaling, or the count badge's corner overhang) exceeds that assumption. Filed with a specific
-  root-cause hypothesis, not yet fixed.
+- **[Issue #26](https://github.com/hachi921082-source/VirtuaLED/issues/26)'s `ExclusionSettingsScreen`
+  has not been confirmed on a real device yet** — implemented, built, and installed on `M06` this
+  session (§19), but the user asked to commit/PR/merge before reporting back a confirmed test.
+  Verify: toggling an app ON in the exclusion list actually stops its notifications from
+  triggering the indicator (slot, session, and peek-preview text all included).
+- **[Issue #27](https://github.com/hachi921082-source/VirtuaLED/issues/27)** — excluding an app
+  directly from an actual received notification (not yet started, deliberately deferred until
+  after #26 landed — it now has). Needs a new "seen apps" persisted history mechanism (nothing
+  currently tracks which apps have ever notified, only what's *currently* pending) plus a new UI
+  surface — both left as open design questions in the issue itself, to be resolved when picked up.
 - **Real premium-gating mechanism, price point, and the Play Console distribution-model
   transition** needed for actual billing are all still explicitly undecided (`docs/QA.md` #22).
   **Do not start Play Console/distribution-model work, or notification-listener-permission
@@ -1181,43 +1202,49 @@ proactively, only answered if asked about directly.
   secure-lock pass specifically on the Sharp AQUOS sense9 is still outstanding (carried over
   unchanged for several sessions now).
 
-## 20. Recommended Next Step
+## 21. Recommended Next Step
 
 **MVP is fully complete** (§11). Of the original 10-item `other/`-tier list (§12), 9 are now done —
 `dnd-handling` (PR #8), `auto-stop-conditions` ×3 (PRs #9/#10/#14), `burn-in-protection` (PR #11),
 `indicator-color-customization` (PR #12, revised to 5 presets via issue #17/PR #20),
 `importance-based-sizing` (PR #13), `category-icons-and-assets` (PR #15), and
 `multi-notification-stacking` (PR #16) are all merged, and the freemium-driven
-`source-app-icon-indicator-mode` (PR #19) shipped alongside them this session (§18). **Only
-`localization-additional-languages` remains.**
+`source-app-icon-indicator-mode` (PR #19) shipped alongside them (§18). **Only
+`localization-additional-languages` remains** from that original list; issues #23 and #26 (§19,
+this session) were separate bug-fix/enhancement work outside that list.
 
-1. **`localization-additional-languages`** — the last item from the original `other/`-tier list, and
-   now the only one left. Read its own `PLAN.md` first (it should specify which languages/how the
-   translation pass works), then sweep the *current* `app/src/main/res/values/strings.xml` — §18's
-   UI overhaul added and renamed a substantial number of keys, so don't work from an older mental
-   model of what strings exist.
-2. **[Issue #23](https://github.com/hachi921082-source/VirtuaLED/issues/23)** (burn-in reposition
-   can push the indicator off-screen) — the root cause is already identified (§18): fix
-   `slotGroupSizePx`'s calculation in `FakeSleepActivity.kt` to reflect the actual rendered
-   bounding box (slot count, high-importance scaling, badge overhang) instead of one hardcoded
-   single-icon constant.
-3. **Leave billing mechanism, pricing, and Play Console/distribution-model work untouched, and do
+1. **Confirm [Issue #26](https://github.com/hachi921082-source/VirtuaLED/issues/26)'s
+   `ExclusionSettingsScreen` on a real device** (§19/§20) — toggle an app ON in the new exclusion
+   list, send it a real notification, confirm the indicator never reacts to it at all (no slot, no
+   session start, not in the peek-preview text). The APK is already installed on `M06`.
+2. **`localization-additional-languages`** — the last item from the original `other/`-tier list.
+   Read its own `PLAN.md` first (it should specify which languages/how the translation pass works),
+   then sweep the *current* `app/src/main/res/values/strings.xml` — §18's UI overhaul and §19's
+   `ExclusionSettingsScreen` both added/renamed keys, so don't work from an older mental model of
+   what strings exist.
+3. **[Issue #27](https://github.com/hachi921082-source/VirtuaLED/issues/27)** (exclude an app
+   directly from an actual received notification) — pick up when there's appetite for it; needs a
+   new "seen apps" persisted history mechanism and a new UI surface, both left as open design
+   questions in the issue itself (§19).
+4. **Leave billing mechanism, pricing, and Play Console/distribution-model work untouched, and do
    not proactively raise it** — `docs/QA.md` #22, boundary reaffirmed twice now (§16, §18). This
    applies to status summaries and "what's left" lists too, not just implementation work.
-4. **`docs/QA.md` #16 and #19** (both non-blocking, both carried over) are candidates for
+5. **`docs/QA.md` #16 and #19** (both non-blocking, both carried over) are candidates for
    opportunistic follow-up if a device is available and cooperative, but neither blocks anything —
-   see §19 for exactly what each still needs.
-5. If more live on-device testing is needed: `docs/QA.md` note above re Wi-Fi adb addresses
+   see §20 for exactly what each still needs.
+6. If more live on-device testing is needed: `docs/QA.md` note above re Wi-Fi adb addresses
    rotating on reconnect, and re `adb install -r` before every verification round, not just the
    first. §14's closing paragraph still has the established pattern for working around this
    device's short re-lock timer. For posting *multiple distinct-app* test notifications, `adb shell
-   cmd notification post` still can't do it (§17's finding) — use real installed apps.
-6. **If working in this repo at the same time as another session, read §17's "practical addition"
+   cmd notification post` still can't do it (§17's finding) — use real installed apps. `adb.exe` may
+   not be on `PATH` in a fresh session/shell — see §19 for the full path used this session.
+7. **If working in this repo at the same time as another session, read §17's "practical addition"
    paragraph before touching git** — there is no worktree isolation, stray commits can land inside
    another session's own branch (not just move `master`/`HEAD`), and re-verifying git state fresh
    (`git status`, `git branch --show-current`, `git log --oneline`, `git reflog`) before trusting
    any earlier read in the same conversation is the safest default.
-7. For small, well-understood, narrowly-scoped fixes, direct main-session implementation (as done
-   for issue #17, `docs/QA.md` #17, and §18's UI overhaul) is an established and accepted
-   alternative to the full `developer-lite`/`reviewer-lite` flow — use judgment on which fits a
-   given task, the full flow is still the default for anything larger or less well-understood.
+8. For small, well-understood, narrowly-scoped fixes, direct main-session implementation (as done
+   for issue #17, `docs/QA.md` #17, §18's UI overhaul, and this session's issues #23/#26, §19) is an
+   established and accepted alternative to the full `developer-lite`/`reviewer-lite` flow — use
+   judgment on which fits a given task, the full flow is still the default for anything larger or
+   less well-understood.
