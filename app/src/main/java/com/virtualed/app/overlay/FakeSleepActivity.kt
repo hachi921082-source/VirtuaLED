@@ -28,9 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.virtualed.app.R
 import com.virtualed.app.category.IndicatorCategory
@@ -46,8 +48,10 @@ import kotlinx.coroutines.launch
 // 実際の描画サイズの両方で共有する (docs/plans/other/burn-in-protection/PLAN.md §3)。
 // 12dp はプレーンな円のドットとしては視認できたが、category-icons-and-assets のアイコン
 // (封筒/電話等の細かい形状) では小さすぎて判別できないと実機テストで判明したため 24dp に拡大
+// (ユーザー確認・実機調整)。24dp では件数バッジ (16dp) が角に重なるとアイコンの大部分を覆って
+// しまうと multi-notification-stacking の実機テストで判明したため、32dp へ再拡大
 // (ユーザー確認・実機調整)。
-private const val INDICATOR_DOT_SIZE_DP = 24
+private const val INDICATOR_DOT_SIZE_DP = 32
 
 // 2x2 グリッド内の各スロット間ギャップ (dp)。スロットが1件のみの場合は index==0 のみ描画される
 // ため実質ノーオペレーション (docs/plans/other/multi-notification-stacking/PLAN.md §4)。
@@ -316,14 +320,24 @@ private fun SlotIcon(slot: IndicatorSlotUiState, tintColor: Color, modifier: Mod
             )
         }
         if (CountBadgeSettings.enabledCached && slot.count > 1) {
+            // 角に完全に内包すると小さいアイコンをほぼ覆ってしまうため、バッジの半分ほどが
+            // アイコンの外側にはみ出す標準的なバッジ配置にする (ユーザー確認・実機調整)。
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
+                    .offset(x = (COUNT_BADGE_SIZE_DP / 2).dp, y = -(COUNT_BADGE_SIZE_DP / 2).dp)
                     .size(COUNT_BADGE_SIZE_DP.dp)
                     .background(Color.Red, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = slot.count.toString(), color = Color.White)
+                Text(
+                    text = slot.count.toString(),
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    lineHeight = 10.sp,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                )
             }
         }
     }
