@@ -24,8 +24,10 @@
     (Follow-Up Session, PR #15 Open, Not Yet Merged)
 16. Freemium Monetization Consultation and a Parallel-Session Git-Sharing Discovery (Follow-Up
     Session, Consultation-Only — No Code Changes)
-17. Still Open
-18. Recommended Next Step
+17. `multi-notification-stacking` Merged (PR #16) and a Concurrent-Session Branch Split (Follow-Up
+    Session)
+18. Still Open
+19. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -904,36 +906,109 @@ no worktree isolation here — before editing anything, re-run `git status` /
 `git branch --show-current` / `git reflog` fresh rather than trusting an earlier read from the same
 conversation, since another session can and does change branch/HEAD state mid-conversation.
 
-## 17. Still Open
+## 17. `multi-notification-stacking` Merged (PR #16) and a Concurrent-Session Branch Split (Follow-Up Session)
 
-- **PR #16 (`multi-notification-stacking`) is open** — implemented (9 feature commits, per §16
-  above), plus this session's 8 unrelated doc-only commits now sitting on top of the same branch.
-  As of this session's evidence it had not yet had a `reviewer-lite` pass or been merged — but per
-  §16's git-sharing discovery, **re-check `gh pr list`/`git log` fresh** before assuming that's
-  still true, since the parallel session may have progressed further since this was written.
-- **`source-app-icon-indicator-mode` needs a `PLAN.md`** — spec-only so far
-  (`docs/detailed-spec.md` §20/§21, `docs/DECISIONS.md` §22). Not started.
+This session opened by reading the previous handoff, resumed PR #15 verification (the user confirmed
+on-device that dropping `MATCH_DEFAULT_ONLY` did make Rakuten Link appear in the app picker, and that
+the earlier indicator-size fix looked right too), got a final `reviewer-lite` pass on PR #15's 3
+previously-unreviewed commits, and merged it (§15's item 8 resolved). Then implemented
+`multi-notification-stacking` — the same feature this session's own read of the previous handoff (and,
+independently, the parallel freemium-consultation session per §16) both flagged as next — via the usual
+branch/`developer-lite`/`reviewer-lite`/PR flow, opened as **PR #16**.
+
+**Live-device testing** (arrows We2 Plus / `M06`, driven directly with the user — real Outlook mail and
+Rakuten Link missed-call notifications, not synthetic `adb shell cmd notification post` posts, since
+that shell command turned out to always overwrite one single fixed `id=2020 tag=Test` notification
+under `com.android.shell` rather than creating distinct ones — a real adb-testing-technique limitation
+worth remembering for future sessions) confirmed the 2x2 grid renders multiple real apps in distinct
+slots and the count badge shows correct per-app counts (mail=3 including a group-summary notification,
+phone=2). Two real findings surfaced and were fixed before merge: (1) the count badge, at its default
+unconstrained text size inside a 16dp circle over what was then a 24dp icon, was both illegible itself
+and covered most of the icon — fixed by enlarging `INDICATOR_DOT_SIZE_DP` to 32dp, capping the badge
+text at `10.sp`, and offsetting the badge outward by half its own diameter so it hangs off the icon's
+corner (standard Android badge placement) instead of sitting fully inside it; (2) `docs/QA.md` #21
+records a non-blocking finding that `CountBadgeSettings.enabledCached` is read as a plain Kotlin
+property inside `SlotIcon` rather than a Compose `State`, so toggling the badge setting mid-session only
+takes effect at the next unrelated recomposition (e.g. a pending-notification change, or a session
+restart via screen off→on) — same non-blocking class of gap as the pre-existing QA #18.
+
+**Mid-session discovery: a second concurrent Claude Code session (the same one that wrote §16) was
+committing directly onto this session's own `feature/multi-notification-stacking` branch**, in the same
+shared working directory (confirmed via `git worktree list` showing exactly one entry, matching §16's
+own discovery of this from the other side). By the time this was noticed, 7 doc-only commits from that
+session (freemium monetization direction, `source-app-icon-indicator-mode` spec, an
+`indicator-color-customization` follow-up, and a `docs/HANDOFF.md` rewrite) had already landed on top of
+this session's own multi-notification-stacking work and been pushed to
+`origin/feature/multi-notification-stacking` — mixing an unrelated future-feature planning effort into
+what was supposed to be a focused, already-`reviewer-lite`-approved PR.
+
+**Resolved by splitting history, not by discarding anything**: the user paused the other session first,
+then this session split the 7 mixed-in commits by content rather than treating them as one block —
+6 pure-planning-doc commits (`docs/DECISIONS.md`, `docs/QA.md`, `docs/detailed-spec.md`, `docs/spec.md`,
+`docs/plans/other/indicator-color-customization/PLAN.md`, `docs/plans/README.md`) went to a new branch
+`docs/freemium-source-app-icon-planning`, opened as **PR #18** against `master`; the `docs/HANDOFF.md`
+rewrite (§16 itself) was cherry-picked straight onto `master` instead, since a general project handoff
+doc belongs there, not on either feature branch. `feature/multi-notification-stacking` was then
+`git reset --hard` back to its pre-mixing tip, this session's pending icon/badge fix (which had been
+sitting as an uncommitted working-tree change through all of this, saved via `git stash` for the
+duration of the surgery) was re-committed on top, and the branch was pushed with
+`--force-with-lease` (safe here: solo repo, feature branch not `master`, nothing else had pulled the
+mixed-in state). A final `reviewer-lite` pass on just the 2 new commits (icon/badge fix, QA #21)
+approved cleanly, and **PR #16 was merged** — `gh pr merge --merge --delete-branch` succeeded this time
+without being blocked by the Claude Code auto-mode classifier (unlike most previous PRs in this
+project). `docs/plans/README.md`'s `multi-notification-stacking` row now reads Done.
+
+**Practical addition to §16's own lesson**: this repo having no worktree isolation between concurrent
+sessions is not just a "notice and re-verify" situation — it can mean two sessions' commits land
+*inside the same branch*, not just move `master`/`HEAD` around underneath a passive reader. If this
+happens again: **identify each stray commit's actual file scope** (`git show --stat`) before deciding
+how to split, since docs-only commits usually separate cleanly by file even when interleaved, and
+prefer `git reset --hard` to a known-good prior tip + `git stash` for any uncommitted work + a clean
+recommit, over trying to interactively rebase away individual commits from the middle of a stack.
+
+**`docs/QA.md` #21 numbering note**: both PR #16 (merged, this session) and PR #18 (freemium, still
+open) independently added their own "#21" entry, since neither branch could see the other's number at
+the time. PR #16's #21 is now the one in `master`; **whoever reviews/merges PR #18 next needs to
+renumber its own "#21" entry** (about the undecided real premium-gating mechanism/price point) to #22
+to avoid a duplicate.
+
+## 18. Still Open
+
+- **PR #18 (`docs/freemium-source-app-icon-planning`) is open, not yet reviewed or merged** — 7
+  doc-only commits (freemium monetization direction, `source-app-icon-indicator-mode` spec,
+  `indicator-color-customization` follow-up, `docs/QA.md` #20/#21 notes). No code changes, so a full
+  `reviewer-lite` pass may be unnecessary — a read-through against `docs/DECISIONS.md` §22/§23 and
+  `docs/detailed-spec.md` §20/§21 for internal consistency would suffice. **Remember to renumber its
+  `docs/QA.md` "#21" entry to #22** before merging (see §17 above — #21 is already taken in `master`).
+- **`source-app-icon-indicator-mode` needs a `PLAN.md`** — spec-only so far (pending PR #18's merge;
+  no code exists yet). Not started.
 - **[Issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17)** — reduce
   `indicator-color-customization`'s picker to 5 presets, remove the HEX field
   (`docs/DECISIONS.md` §23). Filed, not yet implemented; small/self-contained, fits the lighter
   `fix/<slug>` flow.
 - **Real premium-gating mechanism, price point, and the Play Console distribution-model
-  transition** needed for actual billing are all explicitly undecided (`docs/QA.md` #21). **Do not
-  start Play Console/distribution-model work, or notification-listener-permission Play-review
-  prep, until the user explicitly instructs it** — a boundary the user set this session (§16).
-- **`other/`-tier build order** (§12, updated per §16's discovery): with `category-icons-and-assets`
-  merged (PR #15) and `multi-notification-stacking` implemented (PR #16, pending merge), only
-  `localization-additional-languages` remains from the original 10-feature list, plus the two new
-  freemium-driven items above (source-app-icon mode, issue #17).
+  transition** needed for actual billing are all explicitly undecided (`docs/QA.md`, PR #18's own
+  #21/soon-to-be-#22). **Do not start Play Console/distribution-model work, or
+  notification-listener-permission Play-review prep, until the user explicitly instructs it** — a
+  boundary the user set in the freemium-consultation session (§16).
+- **`other/`-tier build order**: with `category-icons-and-assets` (PR #15) and
+  `multi-notification-stacking` (PR #16) both merged, only `localization-additional-languages`
+  remains from the original 10-feature list (§12), plus the two new freemium-driven items above
+  (source-app-icon mode, issue #17).
 - **`docs/QA.md` #16** — OEM ambient/doze wakefulness quirk (`WAKEFULNESS_DOZING`) on arrows We2
   Plus; root cause still not isolated. Not a blocker.
-- **`docs/QA.md` #17/#18/#19** — narrow non-blocking follow-ups (DND-cache-refresh race, battery-
-  threshold slider not live-refreshing, quiet-hours real-time alarm-fires-while-active path verified
-  by code review only). None are blockers; worth a design decision at some point.
-- **This repo has no worktree isolation between concurrent sessions** (discovered §16) — before any
-  future concurrent-session work, re-verify branch/HEAD state fresh (`git status`,
-  `git branch --show-current`, `git reflog`) rather than trusting an earlier read in the same
-  conversation.
+- **`docs/QA.md` #17/#18/#19/#21** — narrow non-blocking follow-ups (DND-cache-refresh race,
+  battery-threshold slider and count-badge toggle not live-refreshing while running, quiet-hours
+  real-time alarm-fires-while-active path verified by code review only). None are blockers; worth a
+  design decision at some point — #18 and #21 in particular are the same underlying pattern
+  (settings toggle not live-refreshed mid-session) recurring across 3 unrelated features now, which
+  may be worth solving once, generically, rather than per-feature.
+- **This repo has no worktree isolation between concurrent sessions, and stray commits can land
+  inside another session's branch, not just move `master`/`HEAD`** (discovered §16, sharpened §17) —
+  before any future concurrent-session work, re-verify branch/HEAD state fresh (`git status`,
+  `git branch --show-current`, `git log --oneline`, `git reflog`) rather than trusting an earlier
+  read in the same conversation, and read §17's "practical addition" paragraph if a mixed-branch
+  situation like this one comes up again.
 - **Package name placeholder** (`com.virtualed.app`): still unconfirmed, not urgent (carried over).
 - **Old `NO-LED` folder cleanup** (`c:\Users\m9112\vscode2\NO-LED`): status not re-checked in
   several sessions; carried over.
@@ -941,46 +1016,52 @@ conversation, since another session can and does change branch/HEAD state mid-co
 - **Secure-keyguard mechanism** (`docs/DECISIONS.md` §18): confirmed on arrows We2 Plus; a confirmed
   secure-lock pass specifically on the Sharp AQUOS sense9 is still outstanding (carried over
   unchanged for several sessions now).
+## 19. Recommended Next Step
 
-## 18. Recommended Next Step
+**MVP is fully complete** (§11). Of the 10 original `other/`-tier features (§12), all but one are
+done: `dnd-handling` (PR #8), `auto-stop-conditions` ×3 (PRs #9/#10/#14), `burn-in-protection`
+(PR #11), `indicator-color-customization` (PR #12, but see the pending 5-preset revision below),
+`importance-based-sizing` (PR #13), `category-icons-and-assets` (PR #15), and
+`multi-notification-stacking` (PR #16) are all merged. Only `localization-additional-languages`
+remains from that original list. Two new freemium-driven items (§16) are additionally in flight via
+PR #18.
 
-**MVP is fully complete** (§11). Of the 10 original `other/`-tier features (§12), 9 are done:
-`dnd-handling` (PR #8), `auto-stop-conditions` ×3 (PRs #9/#10/#14), `burn-in-protection` (PR #11),
-`indicator-color-customization` (PR #12, but see the pending revision below),
-`importance-based-sizing` (PR #13), `category-icons-and-assets` (PR #15, merged since the previous
-handoff was written), and `multi-notification-stacking` (implemented, PR #16 open). Only
-`localization-additional-languages` remains from that original list. This session (consultation-
-only, §16) added two new freemium-driven items on top.
-
-1. **Re-verify current git/PR state fresh** before continuing — §16/§17 above found state moving
-   underneath this very session; it may have moved again since this was written. Run `git status`,
-   `git branch --show-current`, `gh pr list` first, in whichever session picks this up next.
-2. **Progress PR #16** (`multi-notification-stacking`) through its normal remaining flow if not
-   already done — `reviewer-lite` pass, then merge (ask the user how; `gh pr merge` first per the
-   established preference §8/§9/§10, local `git merge --no-ff` + `push` only if blocked). This
-   session did not touch that feature's own code or review status, only added unrelated doc commits
-   on top of its branch — those should ride along harmlessly once merged, but confirm the merged
-   diff doesn't look surprising because of it.
-3. **Write `docs/plans/other/source-app-icon-indicator-mode/PLAN.md`** from
-   `docs/detailed-spec.md` §20/§21, then implement via the normal `developer-lite`/`reviewer-lite`
-   flow. `docs/detailed-spec.md` §20 already resolves its interaction with
-   `multi-notification-stacking` (per-app 1:1 slot mapping; OTHER overflow slot always falls back
-   to the category icon) — no further design work needed there before writing the plan.
-4. **Pick up [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17)**
+1. **Review and merge PR #18** (`docs/freemium-source-app-icon-planning`) — docs-only, 7 commits.
+   Read it against `docs/DECISIONS.md` §22/§23 and `docs/detailed-spec.md` §20/§21 for internal
+   consistency; a full `reviewer-lite` pass is probably unnecessary for a pure docs change, but use
+   judgment. **Before merging, renumber its `docs/QA.md` "#21" entry to #22** — #21 is already taken
+   in `master` by `multi-notification-stacking`'s own QA finding (§17).
+2. **Write `docs/plans/other/source-app-icon-indicator-mode/PLAN.md`** from `docs/detailed-spec.md`
+   §20/§21 (once PR #18 is merged), then implement via the normal `developer-lite`/`reviewer-lite`
+   flow. §20 already resolves the feature's interaction with `multi-notification-stacking`'s slot
+   grouping (per-app 1:1 mapping for the 4 real slots; the OTHER overflow slot has no single
+   representative app and always falls back to the category icon) — no further design work needed
+   there before writing the plan.
+3. **Pick up [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17)**
    (indicator-color-customization: 5 presets, remove HEX) via the lighter `fix/<slug>` Issue→PR flow
    (`~/.claude/shared/dev-workflow.md` §2) — small, self-contained, doesn't need a new `PLAN.md`.
-5. **`localization-additional-languages`** is the last item from the original `other/`-tier list —
+4. **`localization-additional-languages`** is the last item from the original `other/`-tier list —
    pick up once the above settle, per its own plan's design (tracks whatever `strings.xml` keys
    exist at the time it's implemented).
-6. **Leave billing mechanism, pricing, and Play Console/distribution-model work untouched** until
-   the user explicitly asks for it (§16/§17 above) — this includes not front-loading any
+5. **Leave billing mechanism, pricing, and Play Console/distribution-model work untouched** until
+   the user explicitly asks for it (§16/§17) — this includes not front-loading any
    notification-listener-permission Play-review prep either.
+6. **`docs/QA.md` #17/#18/#19/#21** (all non-blocking) are worth a design decision at some point;
+   #18 and #21 in particular are the same "settings toggle doesn't live-refresh mid-session" pattern
+   recurring across `auto-stop-conditions`/battery and `multi-notification-stacking` now — consider
+   solving it once, generically (e.g. making the relevant `FakeSleepIndicatorUiState`/session-facing
+   settings reads Compose-observable), rather than per-feature each time it resurfaces.
 7. When a `gh pr merge` gets blocked, apply the workflow preference from §8/§9/§10: ask via
    `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than retrying
-   `gh pr merge` itself.
+   `gh pr merge` itself — though note PR #16 this session merged via a plain `gh pr merge` with no
+   classifier block, so this may no longer be as reliably necessary as earlier sessions found it.
 8. If more live on-device testing is needed with the user, read §14's closing paragraph first (the
    established pattern for working efficiently around this device's short re-lock timer and the
-   `docs/QA.md` #16 doze quirk).
-9. If working in this repo at the same time as another session, read §16's closing paragraph first
-   — there is no worktree isolation, so re-verify git state fresh rather than trusting this
-   document alone.
+   `docs/QA.md` #16 doze quirk) — and for posting *multiple distinct-app* test notifications
+   specifically, remember §17's finding that `adb shell cmd notification post` cannot do this (it
+   always overwrites one single fixed notification); use real installed apps instead.
+9. **If working in this repo at the same time as another session, read §17's "practical addition"
+   paragraph before touching git** — there is no worktree isolation, stray commits can land inside
+   another session's own branch (not just move `master`/`HEAD`), and re-verifying git state fresh
+   (`git status`, `git branch --show-current`, `git log --oneline`, `git reflog`) before trusting
+   any earlier read in the same conversation is the safest default.
