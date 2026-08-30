@@ -23,10 +23,14 @@ class BurnInProtector(
     // FakeSleepActivity から供給される。回転/構成変更対策のため、ジャンプの都度呼び出し、
     // キャッシュしない (docs/plans/other/burn-in-protection/PLAN.md §3)。
     private val screenBoundsPx: () -> IntSize,
-    // スロットグループのバウンディングボックス (px)。MVP は単一ドットのみなので、その辺の長さを
-    // dp→px 変換した値を呼び出し側 (FakeSleepActivity) が渡す — このクラスは非 Compose な
-    // プレーンクラスであり Density を持たないため、変換自体はここでは行わない。
-    private val slotGroupSizePx: Int,
+    // スロットグループの現在の実描画バウンディングボックス (px)。スロット数 (2x2 グリッド)・
+    // 高重要度の1.5倍スケール・件数バッジの角はみ出しでサイズが変動するため、screenBoundsPx と
+    // 同様にジャンプの都度呼び出し、キャッシュしない (固定 Int だった旧実装は multi-notification-
+    // stacking/importance-based-sizing/multi-notification-stacking のバッジ機能がいずれも
+    // 単一ドット時のサイズのまま反映されず、実際のグループがそれより大きくなった場合に画面外へ
+    // はみ出す不具合の原因だった — GitHub issue #23)。このクラスは非 Compose なプレーンクラスで
+    // あり Density を持たないため、dp→px 変換自体は呼び出し側 (FakeSleepActivity) が行う。
+    private val footprintPx: () -> IndicatorFootprint,
 ) {
     companion object {
         const val REPOSITION_INTERVAL_MS = 4_000L // 固定値、設定 UI は持たない (docs/DECISIONS.md §13)
@@ -80,11 +84,25 @@ class BurnInProtector(
 
     private fun jumpToRandomOffset() {
         val bounds = screenBoundsPx()
-        val maxX = (bounds.width - slotGroupSizePx).coerceAtLeast(0)
-        val maxY = (bounds.height - slotGroupSizePx).coerceAtLeast(0)
+        val footprint = footprintPx()
+        // topInsetPx: 件数バッジは各アイコンの右上に半径分はみ出す (SlotIcon)。上段スロットの
+        // バッジは group の上端よりさらに上へはみ出すため、y の下限を 0 からこの分だけ上げて
+        // グループ自体をその分下げないと、バッジが画面上端の外側に出てしまう。
+        val minY = footprint.topInsetPx
+        val maxX = (bounds.width - footprint.sizePx.width).coerceAtLeast(0)
+        val maxY = (bounds.height - footprint.sizePx.height).coerceAtLeast(minY)
         indicatorUiState.indicatorOffset.value = IntOffset(
             Random.nextInt(0, maxX + 1),
-            Random.nextInt(0, maxY + 1),
+            Random.nextInt(minY, maxY + 1),
         )
     }
 }
+
+/**
+ * BurnInProtector がジャンプ先の上下限を計算するための、スロットグループの現在の実描画
+ * バウンディングボックス。sizePx はグループの幅/高さ (件数バッジの右方向はみ出しを含む)、
+ * topInsetPx は件数バッジの上方向はみ出し分 — 幅と違って「グループの左上を基準にどれだけ
+ * 上にはみ出るか」という下限側の制約のため、サイズではなく別フィールドとして持つ
+ * (GitHub issue #23)。
+ */
+data class IndicatorFootprint(val sizePx: IntSize, val topInsetPx: Int)
