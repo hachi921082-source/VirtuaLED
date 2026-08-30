@@ -119,22 +119,6 @@ and contradictions before writing the MVP feature plans).
     against a screen-off arriving before the first `refreshCache()` completes) rather than fixed
     immediately.
 
-18. `BatteryLevelReceiver`'s threshold value is captured as a local `val` when the receiver is
-    registered in `VirtuaLedForegroundService.onCreate()`, with no live-refresh mechanism — unlike
-    `DndSettings.hideDuringDndCached`, which `setHideDuringDnd()` updates in place so a running
-    service picks up a DND-toggle change immediately. If the user drags the battery-threshold
-    slider while the feature is already running, the active `BatteryLevelReceiver` keeps using the
-    stale threshold until the feature is toggled OFF and back ON (re-running `onCreate()`).
-
-    This is not a deviation from `docs/plans/other/auto-stop-conditions/PLAN-2-battery.md` — its
-    pseudocode never specifies re-registration on a setting change, so the implementation matches
-    the plan faithfully. Found by `reviewer-lite` during that feature's review; judged non-blocking
-    (same low-severity bar as #17) but flagged as a real UX inconsistency between two sibling
-    settings that neither `docs/detailed-spec.md` §6 nor the PLAN.md resolves. Left open for a
-    design decision: either accept the "takes effect on next toggle-on" behavior as intended, or
-    add a live-refresh path (e.g. a `@Volatile` cached threshold plus a settings-save hook,
-    mirroring `DndSettings`'s pattern) — not fixed immediately.
-
 19. `auto-stop-conditions`/quiet-hours (`docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md`,
     merged PR #14): the "alarm fires for real while a fake-sleep session is actively displayed →
     session force-ends" path was verified by code review only (mirrors the already-proven
@@ -166,17 +150,6 @@ and contradictions before writing the MVP feature plans).
     currently planned; left here as a candidate for later, not picked up by §22's premium-feature
     work.
 
-21. `multi-notification-stacking` (PR #16)'s `CountBadgeSettings.enabledCached` toggle doesn't take
-    effect live while `FakeSleepActivity` is already showing — same class of gap as #18 above.
-    `SlotIcon` reads `CountBadgeSettings.enabledCached` as a plain Kotlin property at composition
-    time rather than a Compose `State`, so toggling the setting from `MainSwitchScreen` mid-session
-    only becomes visible at the next unrelated recomposition (e.g. a pending-notification change, or
-    ending/restarting the session via screen off→on) — confirmed via live on-device testing (arrows
-    We2 Plus / `M06`): the badge appeared only after a power-button screen off→on cycle, not
-    immediately on toggling the switch. Not fixed — same non-blocking precedent as #18 (a design
-    choice about whether every such settings toggle needs a live-refresh path, better decided
-    together rather than per-feature).
-
 22. Should this app's freemium tier (`docs/DECISIONS.md` §22) gate on a real Google Play Billing
     purchase, or something simpler for a personal/low-price app (e.g. a one-time unlock code, or
     even trusting a settings toggle)? Not decided — §22 deliberately defers this by building the
@@ -185,14 +158,6 @@ and contradictions before writing the MVP feature plans).
     the feature code itself. Also open: exact price point (the user mentioned ¥100–200 as a rough
     figure, not finalized) and whether moving to real billing requires the Play Console
     distribution-model transition `docs/DECISIONS.md` §5 already deferred.
-
-23. `source-app-icon-indicator-mode`'s "show app's own icon" toggle
-    (`AppIconIndicatorSettings.enabledCached`) doesn't take effect live while `FakeSleepActivity` is
-    already showing — same class of gap as #18/#21 above. `SlotIcon` reads it as a plain Kotlin
-    property at composition time rather than a Compose `State`, so toggling the setting mid-session
-    only becomes visible at the next unrelated recomposition. Not fixed — same non-blocking
-    precedent as #18/#21 (a design choice about whether every such settings toggle needs a
-    live-refresh path, better decided together rather than per-feature).
 
 ### Resolved (continued)
 
@@ -234,3 +199,40 @@ and contradictions before writing the MVP feature plans).
     mechanism and rely on `FakeSleepActivity`'s own `onPause()`/`onResume()` instead; revise
     `docs/plans/other/phone-call-overlay-suppression/PLAN.md` accordingly before its
     `reviewer-lite` cross-consistency pass.
+
+18. ~~`BatteryLevelReceiver`'s threshold value is captured as a local `val` when the receiver is
+    registered in `VirtuaLedForegroundService.onCreate()`, with no live-refresh mechanism — unlike
+    `DndSettings.hideDuringDndCached`, which `setHideDuringDnd()` updates in place so a running
+    service picks up a DND-toggle change immediately. If the user drags the battery-threshold
+    slider while the feature is already running, the active `BatteryLevelReceiver` keeps using the
+    stale threshold until the feature is toggled OFF and back ON (re-running `onCreate()`).~~
+    Resolved (2026-08-30), as part of a generic fix for the recurring "settings toggle doesn't
+    live-refresh mid-session" pattern (see also #21/#23 below): `BatteryThresholdSettings` now
+    carries a `DndSettings`-style live cache (`thresholdPercentCached`, updated immediately in
+    `setThresholdPercent()`, refreshed via a new `refreshCache()` at service startup);
+    `BatteryLevelReceiver.onReceive()` reads it fresh on every `ACTION_BATTERY_CHANGED` broadcast
+    instead of a value captured once at construction, so a mid-session slider change now takes
+    effect on the very next broadcast without needing to toggle the feature off and on.
+
+21. ~~`multi-notification-stacking` (PR #16)'s `CountBadgeSettings.enabledCached` toggle doesn't
+    take effect live while `FakeSleepActivity` is already showing — same class of gap as #18
+    above. `SlotIcon` reads `CountBadgeSettings.enabledCached` as a plain Kotlin property at
+    composition time rather than a Compose `State`, so toggling the setting from
+    `MainSwitchScreen` mid-session only becomes visible at the next unrelated recomposition —
+    confirmed via live on-device testing (arrows We2 Plus / `M06`): the badge appeared only after
+    a power-button screen off→on cycle, not immediately on toggling the switch.~~ Resolved
+    (2026-08-30): `CountBadgeSettings.enabledCached` is now backed by Compose `mutableStateOf`
+    instead of a plain `@Volatile var`. `SlotIcon` reads it during composition, so it is now
+    subscribed to Compose's snapshot system and automatically recomposes when the value changes —
+    including from a background coroutine (`setEnabled()`/`refreshCache()`). No call-site changes
+    were needed anywhere else in the codebase; plain non-Compose reads/writes behave identically
+    to before.
+
+23. ~~`source-app-icon-indicator-mode`'s "show app's own icon" toggle
+    (`AppIconIndicatorSettings.enabledCached`) doesn't take effect live while `FakeSleepActivity`
+    is already showing — same class of gap as #18/#21 above. `SlotIcon` reads it as a plain
+    Kotlin property at composition time rather than a Compose `State`, so toggling the setting
+    mid-session only becomes visible at the next unrelated recomposition.~~ Resolved (2026-08-30):
+    same fix as #21, applied to `AppIconIndicatorSettings.enabledCached`. `PremiumState` was
+    deliberately left untouched by this fix — there is currently no live in-session way to toggle
+    premium status (no billing UI exists yet), so there was no live-refresh bug to fix there.
