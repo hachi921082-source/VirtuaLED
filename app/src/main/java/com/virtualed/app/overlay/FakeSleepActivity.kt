@@ -40,6 +40,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.lifecycleScope
 import com.virtualed.app.R
 import com.virtualed.app.category.IndicatorCategory
+import com.virtualed.app.category.drawableRes
 import com.virtualed.app.data.AppIconIndicatorSettings
 import com.virtualed.app.data.CountBadgeSettings
 import com.virtualed.app.data.IndicatorColorSettings
@@ -387,13 +388,3 @@ private fun SlotIcon(slot: IndicatorSlotUiState, tintColor: Color, modifier: Mod
     }
 }
 
-// slot.category からドローアブルリソースへのコンパイル時解決 (docs/plans/other/
-// category-icons-and-assets/PLAN.md §6) — IndicatorCategory.assetName の文字列は
-// アセット命名の文書化用途のみで、ここでは使わない (ランタイム文字列解決はしない)。
-private fun IndicatorCategory.drawableRes(): Int = when (this) {
-    IndicatorCategory.PHONE -> R.drawable.ic_notify_phone
-    IndicatorCategory.MAIL -> R.drawable.ic_notify_mail
-    IndicatorCategory.SNS -> R.drawable.ic_notify_sns
-    IndicatorCategory.CALENDAR -> R.drawable.ic_notify_calendar
-    IndicatorCategory.OTHER -> R.drawable.ic_notify_other
-}

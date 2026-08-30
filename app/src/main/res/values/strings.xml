@@ -23,42 +23,62 @@
     <string name="onboarding_granted_label">許可済み</string>
     <string name="onboarding_grant_button">許可する</string>
 
-    <!-- docs/plans/other/dnd-handling/PLAN.md §4 -->
-    <string name="settings_show_during_dnd">おやすみモード中もインジケーターを表示する</string>
+    <!-- MainActivity.kt の主スイッチ行ラベル (2026-08-30 追加、以前はラベル無しのスイッチのみ) -->
+    <string name="settings_app_launch_label">アプリの起動</string>
+
+    <!-- docs/plans/other/dnd-handling/PLAN.md §4
+         文言は 2026-08-30 に「おやすみモード」(=DND の Android 標準和名) から
+         「応答不可モード(DND)」へ変更 — 「サイレントモード」(着信音のみの消音) と紛らわしい
+         との指摘への対応。DEFAULT_HIDE_DURING_DND 自体も同日 true→false に反転
+         (docs/DECISIONS.md #22 の議論、com/virtualed/app/data/DndSettings.kt 参照)。 -->
+    <string name="settings_show_during_dnd">応答不可モード(DND)でも表示する</string>
 
     <!-- docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §5 -->
     <string name="settings_battery_threshold_label">バッテリー残量が %1$d%% 以下で自動停止</string>
     <!-- docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §4 -->
     <string name="auto_stop_battery_toast">バッテリー残量が %1$d%% 以下になったため停止しました</string>
 
-    <!-- docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §8 -->
-    <string name="settings_quiet_hours_enabled_label">クワイエットアワーを有効にする</string>
+    <!-- docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §8
+         ラベル文言は 2026-08-30 に「クワイエットアワー」という片仮名語から
+         「一時停止する時間を設定」へ変更 (分かりにくいとの指摘)。内部の型/関数名
+         (QuietHoursSettings 等) は変更していない。 -->
+    <string name="settings_quiet_hours_enabled_label">一時停止する時間を設定</string>
     <string name="settings_quiet_hours_start_button">開始: %1$02d:%2$02d</string>
     <string name="settings_quiet_hours_end_button">終了: %1$02d:%2$02d</string>
 
     <!-- docs/plans/other/indicator-color-customization/PLAN.md §3 (HEX入力欄は §4 で廃止) -->
-    <string name="settings_indicator_color_label">インジケーターの色</string>
+    <!-- 2026-08-30: 「インジケーターの色」から「アイコンの色」へ変更 (ユーザー提案画像の
+         指定通り — 独自判断で戻さないこと)。 -->
+    <string name="settings_indicator_color_label">アイコンの色</string>
 
-    <!-- docs/plans/other/importance-based-sizing/PLAN.md §5 -->
-    <string name="settings_blink_interval_label">高重要度時の点滅間隔: %1$dms</string>
-    <!-- docs/plans/other/importance-based-sizing/PLAN.md §3 -->
-    <string name="settings_keyword_settings_button">キーワード設定</string>
+    <!-- docs/plans/other/importance-based-sizing/PLAN.md §5
+         2026-08-30 にスライダーから −/+ ステッパーへ変更したのに伴い、値を含まない見出しと
+         値表示を別文字列に分割 (MainActivity.kt の BlinkIntervalStepper)。 -->
+    <string name="settings_blink_interval_title">高重要度時の点滅間隔</string>
+    <string name="settings_blink_interval_value">%1$dms</string>
+    <!-- docs/plans/other/importance-based-sizing/PLAN.md §3
+         MainSwitchScreen 側のラベル文言は 2026-08-30 に「キーワード設定」という単独ボタンから
+         「重要キーワードの設定」+ 共通の「設定」ボタン (settings_row_button_label) の行形式へ変更。
+         この画面自体のタイトルは変更していない。 -->
+    <string name="settings_keyword_settings_row_label">重要キーワードの設定</string>
     <string name="keyword_settings_title">キーワード設定</string>
     <string name="keyword_settings_back_button">戻る</string>
     <string name="keyword_settings_pick_app_label">アプリを選択</string>
-    <string name="keyword_settings_no_app_selected">アプリを選択してください</string>
     <string name="keyword_settings_add_keyword_hint">キーワードを入力</string>
     <string name="keyword_settings_add_button">追加</string>
     <string name="keyword_settings_remove_button">削除</string>
     <string name="keyword_settings_empty_keywords">登録済みのキーワードはありません</string>
 
-    <!-- docs/plans/other/category-icons-and-assets/PLAN.md §4/§7 -->
-    <string name="settings_category_settings_button">カテゴリ設定</string>
+    <!-- docs/plans/other/category-icons-and-assets/PLAN.md §4/§7
+         MainSwitchScreen 側のラベル文言は 2026-08-30 に「カテゴリ設定」という単独ボタンから
+         「アプリ毎のアイコンカテゴリの設定」+ 共通の「設定」ボタン (settings_row_button_label)
+         の行形式へ変更。この画面自体のタイトルは変更していない。 -->
+    <string name="settings_category_settings_row_label">アプリ毎のアイコンカテゴリの設定</string>
+    <!-- MainSwitchScreen の全ての「別画面へ遷移」行 (カテゴリ/キーワード) で共有する汎用ボタン文言。 -->
+    <string name="settings_row_button_label">設定</string>
     <string name="category_settings_title">カテゴリ設定</string>
     <string name="category_settings_back_button">戻る</string>
     <string name="category_settings_pick_app_label">アプリを選択</string>
-    <string name="category_settings_no_app_selected">アプリを選択してください</string>
-    <string name="category_settings_category_label">カテゴリ</string>
     <string name="category_settings_category_unset">未設定</string>
     <string name="category_settings_category_phone">電話</string>
     <string name="category_settings_category_mail">メール</string>
@@ -71,4 +91,12 @@
 
     <!-- docs/plans/other/source-app-icon-indicator-mode/PLAN.md §7 -->
     <string name="settings_show_app_icon">通知元アプリ自身のアイコンを表示する</string>
+    <!-- 2026-08-30 追加 — 課金未解放時、上の行がスイッチの代わりに表示する PremiumInfoScreen への導線ボタン -->
+    <string name="settings_premium_cta_button">課金への案内</string>
+
+    <!-- PremiumInfoScreen.kt (2026-08-30 追加)。docs/QA.md #22 の通り、実際の購入処理はまだ未実装 -->
+    <string name="premium_info_title">プレミアム機能</string>
+    <string name="premium_info_back_button">戻る</string>
+    <string name="premium_info_description">通知元アプリ自身のアイコンをそのまま表示する、プレミアム機能です。購入機能は近日公開予定です。</string>
+    <string name="premium_info_purchase_button_placeholder">近日公開</string>
 </resources>
