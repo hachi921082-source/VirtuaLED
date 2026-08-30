@@ -1,16 +1,15 @@
 package com.virtualed.app.ui
 
-import android.content.Context
-import android.content.Intent
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -34,9 +33,6 @@ import com.virtualed.app.R
 import com.virtualed.app.data.KeywordRegistry
 import kotlinx.coroutines.launch
 
-/** アプリ選択リスト1件分 (パッケージ名 + 表示ラベル)。 */
-data class InstalledAppInfo(val packageName: String, val label: String)
-
 /**
  * アプリ別キーワード登録画面 (docs/plans/other/importance-based-sizing/PLAN.md §1/§3)。
  * ナビゲーションライブラリを使わず、OnboardingScreen ↔ MainSwitchScreen と同じ boolean トグルで
@@ -44,7 +40,9 @@ data class InstalledAppInfo(val packageName: String, val label: String)
  *
  * このアプリは「現在保留中の通知」しか保持しない (PendingNotificationsRepository、通知履歴は
  * 対象外) ため、アプリ選択は PackageManager 経由でランチャー起動可能な全インストール済みアプリ
- * から行う (PLAN.md §3 の「or any installed app」フォールバック)。
+ * から行う (PLAN.md §3 の「or any installed app」フォールバック)。InstalledAppInfo/
+ * loadInstalledApps() は InstalledAppPicker.kt へ共通化済み (docs/plans/other/
+ * category-icons-and-assets/PLAN.md §7、CategorySettingsScreen と共用)。
  */
 @Composable
 fun KeywordSettingsScreen(onBack: () -> Unit) {
@@ -66,7 +64,15 @@ fun KeywordSettingsScreen(onBack: () -> Unit) {
     var newKeyword by remember { mutableStateOf("") }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        // CategorySettingsScreen と同じ理由でステータスバー/ナビゲーションバー分の余白を確保する
+        // (enableEdgeToEdge() によりコンテンツが先頭行から時計/バッテリー表示と重なっていた —
+        // category-icons-and-assets のブランチでの実機テストで発見)。
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(16.dp),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -162,21 +168,4 @@ fun KeywordSettingsScreen(onBack: () -> Unit) {
             }
         }
     }
-}
-
-/**
- * ランチャー起動可能な全インストール済みアプリを、表示ラベルの昇順で取得する
- * (docs/plans/other/importance-based-sizing/PLAN.md §3 の「or any installed app」フォールバック)。
- */
-private fun loadInstalledApps(context: Context): List<InstalledAppInfo> {
-    val pm = context.packageManager
-    val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-    val resolveInfos = pm.queryIntentActivities(launcherIntent, PackageManager.MATCH_DEFAULT_ONLY)
-    return resolveInfos
-        .map { it.activityInfo.applicationInfo }
-        .distinctBy { it.packageName }
-        .map { appInfo: ApplicationInfo ->
-            InstalledAppInfo(appInfo.packageName, pm.getApplicationLabel(appInfo).toString())
-        }
-        .sortedBy { it.label.lowercase() }
 }

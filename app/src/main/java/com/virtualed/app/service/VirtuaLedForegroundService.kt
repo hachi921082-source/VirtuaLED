@@ -17,6 +17,7 @@ import com.virtualed.app.autostop.BatteryLevelReceiver
 import com.virtualed.app.autostop.QuietHoursScheduler
 import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.BlinkSettings
+import com.virtualed.app.data.CategorySettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.KeywordRegistry
@@ -80,6 +81,10 @@ class VirtuaLedForegroundService : Service() {
         // 使うキャッシュ値 (登録キーワード全件・点滅間隔) を、同じ理由でサービス起動時に読み込む。
         serviceScope.launch { KeywordRegistry.refreshCache(applicationContext) }
         serviceScope.launch { BlinkSettings.refreshCache(applicationContext) }
+
+        // docs/plans/other/category-icons-and-assets/PLAN.md §4 — CategoryMapper の同期評価に
+        // 使うキャッシュ値 (アプリ別割り当てカテゴリ全件) を、同じ理由でサービス起動時に読み込む。
+        serviceScope.launch { CategorySettings.refreshCache(applicationContext) }
 
         // docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §3 — しきい値の読み込みが非同期な
         // ため、DataStore からの読み込み完了後に登録する。ACTION_BATTERY_CHANGED は sticky broadcast
