@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import com.virtualed.app.R
 import com.virtualed.app.autostop.BatteryLevelReceiver
 import com.virtualed.app.autostop.QuietHoursScheduler
+import com.virtualed.app.data.AppExclusionSettings
 import com.virtualed.app.data.AppIconIndicatorSettings
 import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.BlinkSettings
@@ -89,6 +90,10 @@ class VirtuaLedForegroundService : Service() {
         // docs/plans/other/category-icons-and-assets/PLAN.md §4 — CategoryMapper の同期評価に
         // 使うキャッシュ値 (アプリ別割り当てカテゴリ全件) を、同じ理由でサービス起動時に読み込む。
         serviceScope.launch { CategorySettings.refreshCache(applicationContext) }
+
+        // GitHub issue #26 — NotificationSyncListenerService.onNotificationPosted() の除外判定は
+        // 通知が届くたびの同期パスのため、同じ理由でサービス起動時に読み込む。
+        serviceScope.launch { AppExclusionSettings.refreshCache(applicationContext) }
 
         // docs/plans/other/multi-notification-stacking/PLAN.md §5 — SlotIcon の件数バッジ描画は
         // Compose の同期パスのため、同じ理由でサービス起動時に読み込む。
