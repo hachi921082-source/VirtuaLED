@@ -33,9 +33,11 @@ class FakeSleepIndicatorUiState {
     // (docs/plans/other/indicator-color-customization/PLAN.md §2/§5)。
     val tintColor: MutableState<Color> = mutableStateOf(Color.White)
 
-    // インジケータースロットの一覧。現時点では常に単一スロットの既定値 (MVP は単一ドットのみ) —
-    // 複数スロット化は docs/plans/other/multi-notification-stacking/ が担当。各スロットの
-    // highImportance は ImportanceResolver の判定結果を FakeSleepSessionController が書き込む
+    // インジケータースロットの一覧。初期値は単一スロットの既定値 — 実際のセッション中は
+    // FakeSleepSessionController.recomputeIndicatorState() が IndicatorSlotBuilder.build() の
+    // 結果 (アプリ単位で最大4件、5件目以降は OTHER へ集約) へ書き換える
+    // (docs/plans/other/multi-notification-stacking/PLAN.md §3/§6)。各スロットの highImportance は
+    // アプリ単位のキーワードマッチ判定結果を同関数が書き込む
     // (docs/plans/other/importance-based-sizing/PLAN.md §6)。
     val slots: MutableState<List<IndicatorSlotUiState>> = mutableStateOf(listOf(IndicatorSlotUiState()))
 
@@ -48,9 +50,10 @@ class FakeSleepIndicatorUiState {
 /**
  * インジケータースロット1件分の表示状態。category は null の間プレーンなドット
  * (ic_notify_dot 相当の円) を描画し、非 null なら対応するカテゴリアイコンを描画する
- * (docs/plans/other/category-icons-and-assets/PLAN.md §5)。書き込みは
- * FakeSleepSessionController の再計算パスが行い、単一スロット MVP では常にインデックス0の
- * スロットのみが更新される。
+ * (docs/plans/other/category-icons-and-assets/PLAN.md §5)。リスト全体の書き込みは
+ * FakeSleepSessionController の再計算パスが IndicatorSlotBuilder.build() 経由で行い、
+ * アプリ単位で1スロット (最大4件、5件目以降は count を合算した OTHER オーバーフロー
+ * スロット1件へ集約) を持つ (docs/plans/other/multi-notification-stacking/PLAN.md §3)。
  */
 data class IndicatorSlotUiState(
     val count: Int = 1,
