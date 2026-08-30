@@ -86,6 +86,12 @@
     <string name="category_settings_category_calendar">カレンダー</string>
     <string name="category_settings_category_other">その他</string>
 
+    <!-- GitHub issue #26 — アプリ別「インジケーターから除外」設定。 -->
+    <string name="settings_exclusion_settings_row_label">通知しないアプリの設定</string>
+    <string name="exclusion_settings_title">除外設定</string>
+    <string name="exclusion_settings_back_button">戻る</string>
+    <string name="exclusion_settings_description">ONにしたアプリの通知はインジケーターに一切表示されません</string>
+
     <!-- docs/plans/other/multi-notification-stacking/PLAN.md §5 -->
     <string name="settings_show_count_badge">通知件数バッジを表示する</string>
 
