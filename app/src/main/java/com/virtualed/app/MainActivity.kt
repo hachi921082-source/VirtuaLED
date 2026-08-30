@@ -65,6 +65,7 @@ import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.service.VirtuaLedForegroundService
 import com.virtualed.app.ui.CategorySettingsScreen
+import com.virtualed.app.ui.ExclusionSettingsScreen
 import com.virtualed.app.ui.KeywordSettingsScreen
 import com.virtualed.app.ui.OnboardingScreen
 import com.virtualed.app.ui.PremiumInfoScreen
@@ -104,6 +105,10 @@ fun VirtuaLedApp() {
     // MainSwitchScreen ↔ CategorySettingsScreen を切り替える。
     var showCategorySettings by remember { mutableStateOf(false) }
 
+    // GitHub issue #26 — 上と同じ boolean トグル方式で MainSwitchScreen ↔
+    // ExclusionSettingsScreen を切り替える。
+    var showExclusionSettings by remember { mutableStateOf(false) }
+
     // docs/plans/other/source-app-icon-indicator-mode/PLAN.md §7 改訂 (2026-08-30) — 上と同じ
     // boolean トグル方式で MainSwitchScreen ↔ PremiumInfoScreen を切り替える。
     var showPremiumInfo by remember { mutableStateOf(false) }
@@ -118,12 +123,15 @@ fun VirtuaLedApp() {
         KeywordSettingsScreen(onBack = { showKeywordSettings = false })
     } else if (showCategorySettings) {
         CategorySettingsScreen(onBack = { showCategorySettings = false })
+    } else if (showExclusionSettings) {
+        ExclusionSettingsScreen(onBack = { showExclusionSettings = false })
     } else if (showPremiumInfo) {
         PremiumInfoScreen(onBack = { showPremiumInfo = false })
     } else {
         MainSwitchScreen(
             onOpenKeywordSettings = { showKeywordSettings = true },
             onOpenCategorySettings = { showCategorySettings = true },
+            onOpenExclusionSettings = { showExclusionSettings = true },
             onOpenPremiumInfo = { showPremiumInfo = true },
         )
     }
@@ -156,6 +164,7 @@ private fun RequestPostNotificationsPermission() {
 fun MainSwitchScreen(
     onOpenKeywordSettings: () -> Unit = {},
     onOpenCategorySettings: () -> Unit = {},
+    onOpenExclusionSettings: () -> Unit = {},
     onOpenPremiumInfo: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -312,6 +321,12 @@ fun MainSwitchScreen(
                     label = stringResource(R.string.settings_keyword_settings_row_label),
                     buttonText = stringResource(R.string.settings_row_button_label),
                     onClick = onOpenKeywordSettings,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+                SettingsNavigationRow(
+                    label = stringResource(R.string.settings_exclusion_settings_row_label),
+                    buttonText = stringResource(R.string.settings_row_button_label),
+                    onClick = onOpenExclusionSettings,
                     modifier = Modifier.padding(top = 16.dp),
                 )
                 BlinkIntervalStepper(
