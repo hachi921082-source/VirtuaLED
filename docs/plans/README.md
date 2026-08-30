@@ -156,13 +156,14 @@ the `other/` tier in this order:
   toggle doesn't live-refresh mid-session (same non-blocking class of gap as #18).
 - [`localization-additional-languages`](other/localization-additional-languages/PLAN.md)
 - [`phone-call-overlay-suppression`](other/phone-call-overlay-suppression/PLAN.md)
-- [`indicator-color-customization`](other/indicator-color-customization/PLAN.md) — Originally done
-  (implemented, reviewed, merged PR #12) as an 8-swatch palette + HEX field. Replaces
+- [`indicator-color-customization`](other/indicator-color-customization/PLAN.md) — Done
+  (implemented, reviewed, merged PR #12; revised per
+  [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17), PR pending). Replaces
   `fake-sleep-overlay`'s hardcoded white default with `IndicatorColorSettings` (DataStore) + an
-  inline palette/HEX picker in `MainSwitchScreen` (no separate settings screen — this app has no
+  inline palette picker in `MainSwitchScreen` (no separate settings screen — this app has no
   navigation component, same convention already used for the DND/battery settings). Live color
   changes propagate to an active session via `FakeSleepActivityHolder.indicatorUiState?.tintColor`
-  independent of persistence. **Needs a follow-up revision, tracked as
-  [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17), not yet implemented**:
-  reduce to 5 presets and remove the HEX field entirely (`docs/DECISIONS.md` §23, `PLAN.md` §3/§4)
-  — code change to `ColorPickerSection` in `MainActivity.kt` still pending.
+  independent of persistence. The picker now shows exactly 5 preset swatches (white/red/green/
+  cyan/blue) with no HEX input field, per `docs/DECISIONS.md` §23 — `parseHexColorOrNull` was
+  removed along with its UI call site; no data migration needed since a previously HEX-set
+  persisted color still renders correctly, it just won't show as a highlighted preset.
