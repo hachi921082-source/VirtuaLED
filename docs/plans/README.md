@@ -81,8 +81,19 @@ the `other/` tier in this order:
 
 ## Other Features (no strict order)
 
-- [`category-icons-and-assets`](other/category-icons-and-assets/PLAN.md) — blocked on
-  `docs/QA.md` #13 (app-to-category mapping mechanism) for one section; rest of the plan is ready.
+- [`category-icons-and-assets`](other/category-icons-and-assets/PLAN.md) — Done (implemented,
+  reviewed, merged PR #15). App-to-category mapping resolved as user-assigned per app via a new
+  `CategorySettingsScreen`, not auto-inferred (`docs/DECISIONS.md` §21, resolves `docs/QA.md` #13).
+  Adds `IndicatorCategory`/`CategoryMapper`, 5 solid-white vector icon assets (Material Icons,
+  Apache 2.0), and `FakeSleepIndicatorUiState.slots[].category` — the last of the 5
+  `FakeSleepIndicatorUiState` properties, all now fully wired. An extensive live-device testing
+  round found and fixed 8 real bugs beyond the two reviewer-lite passes (status-bar inset overlap
+  in both settings screens, category-chip row overflow, `<queries>` missing so ordinary apps
+  weren't visible in the picker, `MainSwitchScreen`'s switch not reflecting real service state,
+  indicator size too small for icon detail at 12dp, no discoverable way to un-assign a category,
+  and `MATCH_DEFAULT_ONLY` silently excluding real launcher apps like Rakuten Link from the
+  picker) — see `docs/HANDOFF.md` §15 for the full writeup. `docs/QA.md` #20 records one related,
+  deliberately-deferred request (per-category tint color) that surfaced during this testing.
 - [`burn-in-protection`](other/burn-in-protection/PLAN.md) — Done (implemented, reviewed, merged
   PR #11). Adds `BurnInProtector` and `FakeSleepIndicatorUiState.indicatorOffset`, gated on
   session-active/`OverlayUiState`/proximity-covered via a combined `recompute()`
