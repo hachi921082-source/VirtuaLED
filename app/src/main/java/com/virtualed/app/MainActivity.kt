@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -54,7 +53,6 @@ import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.IndicatorColorSettings
 import com.virtualed.app.data.PremiumState
 import com.virtualed.app.data.QuietHoursSettings
-import com.virtualed.app.data.parseHexColorOrNull
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.service.VirtuaLedForegroundService
@@ -62,7 +60,6 @@ import com.virtualed.app.ui.CategorySettingsScreen
 import com.virtualed.app.ui.KeywordSettingsScreen
 import com.virtualed.app.ui.OnboardingScreen
 import com.virtualed.app.ui.theme.VirtuaLedTheme
-import java.util.Locale
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -409,30 +406,24 @@ private fun QuietHoursSection(
     }
 }
 
-// プリセットパレット。厳密な色値はプロダクト決定ではなく実装時の見た目調整
-// (docs/plans/other/indicator-color-customization/PLAN.md §3)。
+// プリセットパレット (5色固定)。厳密な色値はプロダクト決定ではなく実装時の見た目調整
+// (docs/plans/other/indicator-color-customization/PLAN.md §3、docs/DECISIONS.md §23) —
+// 黒背景に対して視認性よく区別できるよう白/赤/緑/シアン/青を選定。
 private val INDICATOR_COLOR_PRESETS = listOf(
     0xFFFFFFFF.toInt(), // white
     0xFFF44336.toInt(), // red
-    0xFFFF9800.toInt(), // orange
-    0xFFFFEB3B.toInt(), // yellow
     0xFF4CAF50.toInt(), // green
     0xFF00BCD4.toInt(), // cyan
     0xFF2196F3.toInt(), // blue
-    0xFF9C27B0.toInt(), // purple
 )
 
 /**
- * インジケーター色の選択 UI。プリセットスウォッチのタップは即座に永続化・反映し、HEX 欄は
- * 解析成功時のみ永続化する (docs/plans/other/indicator-color-customization/PLAN.md §3/§4)。
+ * インジケーター色の選択 UI。プリセットスウォッチのタップで即座に永続化・反映する。
+ * HEX 自由入力は廃止済み (docs/plans/other/indicator-color-customization/PLAN.md §4、
+ * docs/DECISIONS.md §23)。
  */
 @Composable
 private fun ColorPickerSection(selectedColorArgb: Int, onColorChanged: (Int) -> Unit) {
-    var hexInput by remember(selectedColorArgb) {
-        mutableStateOf(String.format(Locale.ROOT, "#%08X", selectedColorArgb))
-    }
-    var hexError by remember { mutableStateOf(false) }
-
     Column(
         modifier = Modifier.padding(top = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -446,48 +437,17 @@ private fun ColorPickerSection(selectedColorArgb: Int, onColorChanged: (Int) -> 
                         .size(32.dp)
                         .background(Color(presetArgb), CircleShape)
                         .border(1.dp, Color.Gray, CircleShape)
-                        .clickable {
-                            hexError = false
-                            onColorChanged(presetArgb)
-                        },
+                        .clickable { onColorChanged(presetArgb) },
                 )
             }
         }
-        Row(
-            modifier = Modifier.padding(top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedTextField(
-                value = hexInput,
-                onValueChange = { input ->
-                    hexInput = input
-                    val parsed = parseHexColorOrNull(input)
-                    if (parsed != null) {
-                        hexError = false
-                        onColorChanged(parsed)
-                    } else {
-                        hexError = true
-                    }
-                },
-                label = { Text(text = stringResource(R.string.settings_indicator_color_hex_label)) },
-                singleLine = true,
-                isError = hexError,
-                modifier = Modifier.width(160.dp),
-            )
-            Box(
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .size(32.dp)
-                    .background(Color(selectedColorArgb), CircleShape)
-                    .border(1.dp, Color.Gray, CircleShape),
-            )
-        }
-        if (hexError) {
-            Text(
-                text = stringResource(R.string.settings_indicator_color_hex_error),
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
+        Box(
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .size(32.dp)
+                .background(Color(selectedColorArgb), CircleShape)
+                .border(1.dp, Color.Gray, CircleShape),
+        )
     }
 }
 
