@@ -13,15 +13,23 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -59,6 +67,7 @@ import com.virtualed.app.service.VirtuaLedForegroundService
 import com.virtualed.app.ui.CategorySettingsScreen
 import com.virtualed.app.ui.KeywordSettingsScreen
 import com.virtualed.app.ui.OnboardingScreen
+import com.virtualed.app.ui.PremiumInfoScreen
 import com.virtualed.app.ui.theme.VirtuaLedTheme
 import kotlinx.coroutines.launch
 
@@ -95,6 +104,10 @@ fun VirtuaLedApp() {
     // MainSwitchScreen ↔ CategorySettingsScreen を切り替える。
     var showCategorySettings by remember { mutableStateOf(false) }
 
+    // docs/plans/other/source-app-icon-indicator-mode/PLAN.md §7 改訂 (2026-08-30) — 上と同じ
+    // boolean トグル方式で MainSwitchScreen ↔ PremiumInfoScreen を切り替える。
+    var showPremiumInfo by remember { mutableStateOf(false) }
+
     // POST_NOTIFICATIONS は通常のランタイム許可ダイアログで足りるため、通知リスナー onboarding
     // とは独立に、起動時に一度だけ要求する (PLAN のスコープ注記参照)。
     RequestPostNotificationsPermission()
@@ -105,10 +118,13 @@ fun VirtuaLedApp() {
         KeywordSettingsScreen(onBack = { showKeywordSettings = false })
     } else if (showCategorySettings) {
         CategorySettingsScreen(onBack = { showCategorySettings = false })
+    } else if (showPremiumInfo) {
+        PremiumInfoScreen(onBack = { showPremiumInfo = false })
     } else {
         MainSwitchScreen(
             onOpenKeywordSettings = { showKeywordSettings = true },
             onOpenCategorySettings = { showCategorySettings = true },
+            onOpenPremiumInfo = { showPremiumInfo = true },
         )
     }
 }
@@ -140,6 +156,7 @@ private fun RequestPostNotificationsPermission() {
 fun MainSwitchScreen(
     onOpenKeywordSettings: () -> Unit = {},
     onOpenCategorySettings: () -> Unit = {},
+    onOpenPremiumInfo: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -222,75 +239,115 @@ fun MainSwitchScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+        // 設定行が増え続けた結果、画面の高さに収まらなくなり、中央寄せの Box に収めていた
+        // ことで上下ともはみ出して下部のボタンが押せなくなっていた不具合の修正。
+        // スクロール可能にし、他の設定画面 (CategorySettingsScreen 等) と同じ
+        // windowInsetsPadding(WindowInsets.safeDrawing) でステータスバー等との重なりも防ぐ。
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(text = "VirtuaLED")
-                Switch(
+                // 並び順は 2026-08-30 のユーザー提案画像に合わせて全面的に組み替え:
+                // 起動→見た目(色/バッジ/アプリアイコン)→詳細設定(カテゴリ/キーワード)→
+                // 点滅間隔→止める条件(DND/夜間停止/バッテリー)。見出しテキストは置かず、
+                // 上下の padding だけで緩くグルーピングする (提案画像に見出し行は無いため)。
+                SettingsSwitchRow(
+                    label = stringResource(R.string.settings_app_launch_label),
                     checked = enabled,
                     onCheckedChange = { checked ->
                         enabled = checked
                         setForegroundServiceEnabled(context, checked)
-                    }
+                    },
                 )
-                Row(
-                    modifier = Modifier.padding(top = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(text = stringResource(R.string.settings_show_during_dnd))
-                    Switch(
-                        checked = showDuringDnd,
-                        onCheckedChange = { checked ->
-                            showDuringDnd = checked
-                            coroutineScope.launch {
-                                DndSettings.setHideDuringDnd(context, hide = !checked)
-                            }
-                        },
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-                Row(
-                    modifier = Modifier.padding(top = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(text = stringResource(R.string.settings_show_count_badge))
-                    Switch(
-                        checked = countBadgeEnabled,
-                        onCheckedChange = { checked ->
-                            countBadgeEnabled = checked
-                            coroutineScope.launch {
-                                CountBadgeSettings.setEnabled(context, checked)
-                            }
-                        },
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-                // プレミアム未解放時はこの行自体を表示しない — 課金導線が未整備な現状、
-                // 無効表示のスイッチだけ見せても理由を説明できないため
-                // (docs/plans/other/source-app-icon-indicator-mode/PLAN.md §7)。
+                ColorPickerSection(
+                    selectedColorArgb = indicatorColorArgb,
+                    onColorChanged = onIndicatorColorChanged,
+                )
+                SettingsSwitchRow(
+                    label = stringResource(R.string.settings_show_count_badge),
+                    checked = countBadgeEnabled,
+                    onCheckedChange = { checked ->
+                        countBadgeEnabled = checked
+                        coroutineScope.launch {
+                            CountBadgeSettings.setEnabled(context, checked)
+                        }
+                    },
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+                // プレミアム未解放時は行自体を隠さず、案内画面への導線ボタンに置き換える
+                // (2026-08-30、「未解放でも機能の存在に気づけるように」との方針転換 —
+                // docs/plans/other/source-app-icon-indicator-mode/PLAN.md §7 改訂)。
                 if (PremiumState.isPremiumUnlocked()) {
-                    Row(
-                        modifier = Modifier.padding(top = 24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(text = stringResource(R.string.settings_show_app_icon))
-                        Switch(
-                            checked = appIconIndicatorEnabled,
-                            onCheckedChange = { checked ->
-                                appIconIndicatorEnabled = checked
-                                coroutineScope.launch {
-                                    AppIconIndicatorSettings.setEnabled(context, checked)
-                                }
-                            },
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
+                    SettingsSwitchRow(
+                        label = stringResource(R.string.settings_show_app_icon),
+                        checked = appIconIndicatorEnabled,
+                        onCheckedChange = { checked ->
+                            appIconIndicatorEnabled = checked
+                            coroutineScope.launch {
+                                AppIconIndicatorSettings.setEnabled(context, checked)
+                            }
+                        },
+                        modifier = Modifier.padding(top = 16.dp),
+                    )
+                } else {
+                    SettingsNavigationRow(
+                        label = stringResource(R.string.settings_show_app_icon),
+                        buttonText = stringResource(R.string.settings_premium_cta_button),
+                        onClick = onOpenPremiumInfo,
+                        modifier = Modifier.padding(top = 16.dp),
+                    )
                 }
-                Column(
+                SettingsNavigationRow(
+                    label = stringResource(R.string.settings_category_settings_row_label),
+                    buttonText = stringResource(R.string.settings_row_button_label),
+                    onClick = onOpenCategorySettings,
                     modifier = Modifier.padding(top = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                )
+                SettingsNavigationRow(
+                    label = stringResource(R.string.settings_keyword_settings_row_label),
+                    buttonText = stringResource(R.string.settings_row_button_label),
+                    onClick = onOpenKeywordSettings,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+                BlinkIntervalStepper(
+                    intervalMs = blinkIntervalMs,
+                    onIntervalChanged = { newIntervalMs ->
+                        blinkIntervalMs = newIntervalMs
+                        coroutineScope.launch {
+                            BlinkSettings.setIntervalMs(context, newIntervalMs)
+                        }
+                    },
+                    modifier = Modifier.padding(top = 24.dp),
+                )
+                SettingsSwitchRow(
+                    label = stringResource(R.string.settings_show_during_dnd),
+                    checked = showDuringDnd,
+                    onCheckedChange = { checked ->
+                        showDuringDnd = checked
+                        coroutineScope.launch {
+                            DndSettings.setHideDuringDnd(context, hide = !checked)
+                        }
+                    },
+                    modifier = Modifier.padding(top = 24.dp),
+                )
+                QuietHoursSection(
+                    window = quietHoursWindow,
+                    onWindowChanged = onQuietHoursWindowChanged,
+                )
+                // 画面全体が左寄せの行 (SettingsSwitchRow 等) と中央寄せのブロックの混在で
+                // 見づらいとの指摘への対応 (2026-08-30) — fillMaxWidth + 左寄せで他の行と揃え、
+                // スライダーも固定幅 (240.dp) から幅いっぱいに変更。
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 16.dp),
+                    horizontalAlignment = Alignment.Start,
                 ) {
                     Text(text = stringResource(R.string.settings_battery_threshold_label, batteryThreshold))
                     Slider(
@@ -306,53 +363,126 @@ fun MainSwitchScreen(
                         // 1..100 の 1% 刻み (端点2つを除いた中間ステップ数)
                         steps = BatteryThresholdSettings.MAX_THRESHOLD_PERCENT -
                             BatteryThresholdSettings.MIN_THRESHOLD_PERCENT - 1,
-                        modifier = Modifier.width(240.dp),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                ColorPickerSection(
-                    selectedColorArgb = indicatorColorArgb,
-                    onColorChanged = onIndicatorColorChanged,
-                )
-                Column(
-                    modifier = Modifier.padding(top = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(text = stringResource(R.string.settings_blink_interval_label, blinkIntervalMs))
-                    Slider(
-                        value = blinkIntervalMs.toFloat(),
-                        onValueChange = { blinkIntervalMs = it.toLong() },
-                        onValueChangeFinished = {
-                            coroutineScope.launch {
-                                BlinkSettings.setIntervalMs(context, blinkIntervalMs)
-                            }
-                        },
-                        valueRange = BlinkSettings.MIN_INTERVAL_MS.toFloat()..BlinkSettings.MAX_INTERVAL_MS.toFloat(),
-                        modifier = Modifier.width(240.dp),
-                    )
-                }
-                QuietHoursSection(
-                    window = quietHoursWindow,
-                    onWindowChanged = onQuietHoursWindowChanged,
-                )
-                Button(
-                    onClick = onOpenKeywordSettings,
-                    modifier = Modifier.padding(top = 24.dp),
-                ) {
-                    Text(text = stringResource(R.string.settings_keyword_settings_button))
-                }
-                Button(
-                    onClick = onOpenCategorySettings,
-                    modifier = Modifier.padding(top = 12.dp),
-                ) {
-                    Text(text = stringResource(R.string.settings_category_settings_button))
-                }
+        }
+    }
+}
+
+/**
+ * MainSwitchScreen 内の設定行をグループ分けするための見出し (2026-08-30 追加)。
+ * 独立した機能ではなく純粋な表示上の区切りのため、対応する PLAN.md は存在しない。
+ */
+@Composable
+private fun SettingsSectionHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(top = 32.dp),
+    )
+}
+
+/**
+ * ラベル左寄せ・スイッチ右寄せの設定行 (2026-08-30 追加 — ラベルとスイッチをひとまとめに
+ * 中央寄せしていた旧レイアウトより操作しやすいとの指摘への対応)。画面幅いっぱいに広げ
+ * `Arrangement.SpaceBetween` で両端に振り分ける、Android 標準設定画面と同じ形。
+ */
+@Composable
+private fun SettingsSwitchRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // weight(1f) で残り幅いっぱいに広げ、長いラベルは折り返す — 横幅の狭い画面で
+        // スイッチが画面外に押し出されるのを防ぐ (2026-08-30 の指摘への対応)。
+        Text(text = label, modifier = Modifier.weight(1f).padding(end = 8.dp))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * ラベル左寄せ・ボタン右寄せの設定行 (SettingsSwitchRow のボタン版、2026-08-30 追加)。
+ * プレミアム未解放時の案内導線など、スイッチではなく別画面への遷移を提示したい行に使う。
+ */
+@Composable
+private fun SettingsNavigationRow(
+    label: String,
+    buttonText: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // weight(1f) で残り幅いっぱいに広げ、長いラベルは折り返す — 横幅の狭い画面で
+        // ボタンが画面外に押し出されるのを防ぐ (2026-08-30 の指摘への対応)。
+        Text(text = label, modifier = Modifier.weight(1f).padding(end = 8.dp))
+        Button(onClick = onClick) {
+            Text(text = buttonText)
+        }
+    }
+}
+
+/**
+ * 高重要度時の点滅間隔を「−/+ ボタン + 数値」で調整するステッパー (2026-08-30、スライダーより
+ * 狙った値に合わせやすいとの提案でスライダーから変更)。STEP_MS 刻みで BlinkSettings の
+ * 範囲内にクランプする。
+ */
+@Composable
+private fun BlinkIntervalStepper(
+    intervalMs: Long,
+    onIntervalChanged: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val stepMs = 100L
+    // 画面全体が左寄せの行 (SettingsSwitchRow 等) と中央寄せのブロックの混在で見づらい
+    // との指摘への対応 (2026-08-30) — fillMaxWidth + 左寄せで他の行と揃える。
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.Start,
+    ) {
+        Text(text = stringResource(R.string.settings_blink_interval_title))
+        Row(
+            modifier = Modifier.padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = {
+                onIntervalChanged((intervalMs - stepMs).coerceAtLeast(BlinkSettings.MIN_INTERVAL_MS))
+            }) {
+                Text(text = "−", style = MaterialTheme.typography.titleLarge)
+            }
+            Text(
+                text = stringResource(R.string.settings_blink_interval_value, intervalMs),
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+            IconButton(onClick = {
+                onIntervalChanged((intervalMs + stepMs).coerceAtMost(BlinkSettings.MAX_INTERVAL_MS))
+            }) {
+                Text(text = "+", style = MaterialTheme.typography.titleLarge)
             }
         }
     }
 }
 
 /**
- * クワイエットアワー (毎日の時間帯でフェイクスリープを完全抑止する) の設定 UI。
+ * 夜間などの指定時間帯でフェイクスリープを完全抑止する設定 UI (内部識別子は
+ * QuietHoursSettings のまま — 2026-08-30 に画面表示文言のみ和語表現へ変更、
+ * `docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md` 自体は未改名)。
  * 有効/無効スイッチ + 開始/終了の各ボタンから標準 TimePickerDialog (View ベース) を開く。
  * HH:mm のテキスト入力パースを自前実装せず、Android 標準ダイアログに委ねる
  * (docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §8)。
@@ -364,31 +494,36 @@ private fun QuietHoursSection(
 ) {
     val context = LocalContext.current
 
+    // 画面全体が左寄せの行と中央寄せのブロックの混在で見づらいとの指摘への対応 (2026-08-30) —
+    // 開始/終了ボタンの行も SettingsSwitchRow と同じ左マージン (24.dp) に揃える。
     Column(
         modifier = Modifier.padding(top = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Start,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = stringResource(R.string.settings_quiet_hours_enabled_label))
-            Switch(
-                checked = window.enabled,
-                onCheckedChange = { checked -> onWindowChanged(window.copy(enabled = checked)) },
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
-        Row(modifier = Modifier.padding(top = 8.dp)) {
-            Button(onClick = {
-                TimePickerDialog(
-                    context,
-                    { _, hour, minute -> onWindowChanged(window.copy(startHour = hour, startMinute = minute)) },
-                    window.startHour,
-                    window.startMinute,
-                    true, // 24時間表示
-                ).show()
-            }) {
+        SettingsSwitchRow(
+            label = stringResource(R.string.settings_quiet_hours_enabled_label),
+            checked = window.enabled,
+            onCheckedChange = { checked -> onWindowChanged(window.copy(enabled = checked)) },
+        )
+        // window.enabled が false の間はボタン自体を押せなくする (2026-08-30 —
+        // 以前は無効時もタップでき、無効なのに時刻だけ変更できてしまっていた)。
+        Row(modifier = Modifier.padding(top = 8.dp, start = 24.dp)) {
+            Button(
+                enabled = window.enabled,
+                onClick = {
+                    TimePickerDialog(
+                        context,
+                        { _, hour, minute -> onWindowChanged(window.copy(startHour = hour, startMinute = minute)) },
+                        window.startHour,
+                        window.startMinute,
+                        true, // 24時間表示
+                    ).show()
+                },
+            ) {
                 Text(text = stringResource(R.string.settings_quiet_hours_start_button, window.startHour, window.startMinute))
             }
             Button(
+                enabled = window.enabled,
                 onClick = {
                     TimePickerDialog(
                         context,
@@ -424,30 +559,36 @@ private val INDICATOR_COLOR_PRESETS = listOf(
  */
 @Composable
 private fun ColorPickerSection(selectedColorArgb: Int, onColorChanged: (Int) -> Unit) {
+    // 画面全体が左寄せの行 (SettingsSwitchRow 等) と中央寄せのブロックの混在で見づらい
+    // との指摘への対応 (2026-08-30) — fillMaxWidth + 左寄せで他の行と揃える。
     Column(
-        modifier = Modifier.padding(top = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp),
+        horizontalAlignment = Alignment.Start,
     ) {
         Text(text = stringResource(R.string.settings_indicator_color_label))
+        // 選択中のプリセットそのものに太い枠を付けて示す方式 (2026-08-30) — 別途プレビュー用の
+        // 丸を出す必要が無くなった。まだ誰にも配布していない (docs/DECISIONS.md §5) ため、
+        // 5プリセットのどれとも一致しない値 (旧HEX入力由来) を気にする必要はない。
         Row(modifier = Modifier.padding(top = 8.dp)) {
             INDICATOR_COLOR_PRESETS.forEach { presetArgb ->
+                val isSelected = presetArgb == selectedColorArgb
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
                         .size(32.dp)
                         .background(Color(presetArgb), CircleShape)
-                        .border(1.dp, Color.Gray, CircleShape)
+                        .border(
+                            width = if (isSelected) 3.dp else 1.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
+                            shape = CircleShape,
+                        )
                         .clickable { onColorChanged(presetArgb) },
                 )
             }
         }
-        Box(
-            modifier = Modifier
-                .padding(top = 12.dp)
-                .size(32.dp)
-                .background(Color(selectedColorArgb), CircleShape)
-                .border(1.dp, Color.Gray, CircleShape),
-        )
     }
 }
 

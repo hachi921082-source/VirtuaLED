@@ -1,19 +1,22 @@
 package com.virtualed.app.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -29,10 +32,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.virtualed.app.R
 import com.virtualed.app.category.IndicatorCategory
+import com.virtualed.app.category.drawableRes
 import com.virtualed.app.data.CategorySettings
 import kotlinx.coroutines.launch
 
@@ -93,42 +98,37 @@ fun CategorySettingsScreen(onBack: () -> Unit) {
                 text = stringResource(R.string.category_settings_pick_app_label),
                 modifier = Modifier.padding(top = 12.dp),
             )
+            // 2026-08-30: 選んだアプリの直下にカテゴリ選択を展開する形へ変更 (以前はリストの外に
+            // 別枠で表示しており、選択したアプリとの視覚的なつながりが分かりにくいとの指摘)。
+            // 再タップで折りたたむ (アコーディオン方式)。
             LazyColumn(modifier = Modifier.weight(1f, fill = false).padding(top = 4.dp)) {
                 items(installedApps) { app ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { selectedPackage = app.packageName }
-                            .padding(vertical = 8.dp),
-                    ) {
-                        Text(text = app.label)
+                    val isExpanded = selectedPackage == app.packageName
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedPackage = if (isExpanded) null else app.packageName
+                                }
+                                .padding(vertical = 8.dp),
+                        ) {
+                            Text(text = app.label)
+                        }
+                        if (isExpanded) {
+                            CategoryPickerRow(
+                                selectedCategory = selectedCategory,
+                                onCategorySelected = { category ->
+                                    selectedCategory = category
+                                    coroutineScope.launch {
+                                        CategorySettings.setCategory(context, app.packageName, category)
+                                    }
+                                },
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                        }
                     }
                 }
-            }
-
-            val selected = selectedPackage
-            if (selected == null) {
-                Text(
-                    text = stringResource(R.string.category_settings_no_app_selected),
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-            } else {
-                Text(
-                    text = selected,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-                Text(
-                    text = stringResource(R.string.category_settings_category_label),
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                CategoryPickerRow(
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { category ->
-                        selectedCategory = category
-                        coroutineScope.launch { CategorySettings.setCategory(context, selected, category) }
-                    },
-                )
             }
         }
     }
@@ -142,10 +142,12 @@ fun CategorySettingsScreen(onBack: () -> Unit) {
  * 選択中のチップをもう一度タップすると未割り当てへ戻るオン/オフトグル動作も持たせる —
  * 一般的な選択チップ UI の慣習に沿った、より発見しやすい解除手段として追加する。
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun CategoryPickerRow(
     selectedCategory: IndicatorCategory?,
     onCategorySelected: (IndicatorCategory?) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val options = listOf(
         IndicatorCategory.PHONE to stringResource(R.string.category_settings_category_phone),
@@ -155,9 +157,10 @@ private fun CategoryPickerRow(
         // null = 未割り当て。表示ラベルは「その他」で、明示的な OTHER 割り当てと見た目上区別しない。
         null to stringResource(R.string.category_settings_category_other),
     )
-    // 5択のラベル (日本語) 幅の合計が画面幅を超え、末尾の「その他」が画面外に出て選べなくなる
-    // ことが実機テストで判明したため、横スクロール可能にする。
-    Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
+    // 5択のラベル (日本語) 幅の合計が画面幅を超えることが実機テストで判明。横スクロールは
+    // 発見しにくいとの指摘 (2026-08-30) を受け、収まらない分は自動で次の行へ折り返す
+    // FlowRow に変更 (横スクロールより見た目上わかりやすい)。
+    FlowRow(modifier = modifier.padding(top = 8.dp)) {
         options.forEach { (category, label) ->
             val isSelected = selectedCategory == category
             Button(
@@ -172,6 +175,16 @@ private fun CategoryPickerRow(
                 },
                 modifier = Modifier.padding(end = 4.dp),
             ) {
+                // 2026-08-30: 実際にインジケーターへ表示されるアイコン画像をチップにも表示する
+                // (テキストだけでは分かりにくいとの指摘) — null (未割り当て/その他) は
+                // OTHER と同じアイコンにフォールバックする (描画側の CategoryMapper.resolve() と
+                // 同じ扱い、com/virtualed/app/category/IndicatorCategory.kt の drawableRes() を共用)。
+                Image(
+                    painter = painterResource((category ?: IndicatorCategory.OTHER).drawableRes()),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(text = label)
             }
         }
