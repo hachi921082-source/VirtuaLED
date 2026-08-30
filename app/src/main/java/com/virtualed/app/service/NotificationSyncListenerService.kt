@@ -4,6 +4,7 @@ import android.app.Notification
 import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.virtualed.app.data.AppExclusionSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.DndState
 import com.virtualed.app.data.PendingNotificationInfo
@@ -22,6 +23,11 @@ class NotificationSyncListenerService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return // §4 — 自アプリの FGS 通知を除外
+        // issue #26 — 除外設定されたアプリの通知はここで完全に握りつぶす。
+        // PendingNotificationsRepository へ一切追加しないため、スロット描画・セッション開始・
+        // プレビューテキストのいずれにも影響しない (category/keyword の除外とは異なり、
+        // 通知そのものをここで止める)。
+        if (sbn.packageName in AppExclusionSettings.excludedCache) return
         PendingNotificationsRepository.put(sbn.toPendingInfo(this))
     }
 
@@ -35,7 +41,7 @@ class NotificationSyncListenerService : NotificationListenerService() {
         // §5 resync — 初回バインド時、および OS/プロセスキルからのリスナー再接続時に
         // 保留中通知の集合をアクティブな通知一覧から再構築する (空とは仮定しない)
         val active = activeNotifications
-            .filter { it.packageName != packageName }
+            .filter { it.packageName != packageName && it.packageName !in AppExclusionSettings.excludedCache }
             .map { it.toPendingInfo(this) }
         PendingNotificationsRepository.replaceAll(active)
 
