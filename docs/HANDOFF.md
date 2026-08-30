@@ -26,8 +26,11 @@
     Session, Consultation-Only — No Code Changes)
 17. `multi-notification-stacking` Merged (PR #16) and a Concurrent-Session Branch Split (Follow-Up
     Session)
-18. Still Open
-19. Recommended Next Step
+18. PR #18 Merged, `source-app-icon-indicator-mode` and Issue #17 Shipped, a Generic Live-Refresh
+    Fix, QA #17 Resolved, a Live QA #16 Investigation, and a Long Settings-Screen UI Overhaul
+    (Follow-Up Session)
+19. Still Open
+20. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -972,43 +975,204 @@ the time. PR #16's #21 is now the one in `master`; **whoever reviews/merges PR #
 renumber its own "#21" entry** (about the undecided real premium-gating mechanism/price point) to #22
 to avoid a duplicate.
 
-## 18. Still Open
+## 18. PR #18 Merged, `source-app-icon-indicator-mode` and Issue #17 Shipped, a Generic Live-Refresh Fix, QA #17 Resolved, a Live QA #16 Investigation, and a Long Settings-Screen UI Overhaul (Follow-Up Session)
 
-- **PR #18 (`docs/freemium-source-app-icon-planning`) is open, not yet reviewed or merged** — 7
-  doc-only commits (freemium monetization direction, `source-app-icon-indicator-mode` spec,
-  `indicator-color-customization` follow-up, `docs/QA.md` #20/#21 notes). No code changes, so a full
-  `reviewer-lite` pass may be unnecessary — a read-through against `docs/DECISIONS.md` §22/§23 and
-  `docs/detailed-spec.md` §20/§21 for internal consistency would suffice. **Remember to renumber its
-  `docs/QA.md` "#21" entry to #22** before merging (see §17 above — #21 is already taken in `master`).
-- **`source-app-icon-indicator-mode` needs a `PLAN.md`** — spec-only so far (pending PR #18's merge;
-  no code exists yet). Not started.
-- **[Issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17)** — reduce
-  `indicator-color-customization`'s picker to 5 presets, remove the HEX field
-  (`docs/DECISIONS.md` §23). Filed, not yet implemented; small/self-contained, fits the lighter
-  `fix/<slug>` flow.
+This session opened by reading the previous handoff and worked through §20's recommended-next-step
+list one item at a time, with the user explicitly choosing (after a memory-recorded incident on an
+earlier session, `feedback_confirm_scope_before_acting`) to confirm before starting each new item
+rather than have the whole list run unattended.
+
+**PR #18 reviewed and merged.** Read the freemium-planning docs directly (not just skimmed) against
+`docs/DECISIONS.md` §22/§23 and `docs/detailed-spec.md` §20/§21 — internally consistent, matched
+the previous handoff's own description exactly. Confirmed via `git merge-tree` that merging into
+`master` would be conflict-free despite `docs/QA.md`/`docs/plans/README.md` having diverged on both
+sides since the fork point. Renumbered the branch's duplicate `docs/QA.md` "#21" (3 cross-references
++ the item itself) to "#22" before merging, per the previous handoff's own reminder. **Post-merge
+cleanup**: the merge left `docs/QA.md` #21/#22 in the wrong file order (22 landed before 21) and left
+a now-stale "whichever PR merges second should renumber" note on #21 — both fixed in a follow-up
+commit.
+
+**`source-app-icon-indicator-mode` implemented, reviewed, merged (PR #19).** `developer-lite` wrote
+`docs/plans/other/source-app-icon-indicator-mode/PLAN.md` from `docs/detailed-spec.md` §20/§21 (no
+`designer-lite` escalation needed — the spec + already-shipped code, e.g. `IndicatorSlotBuilder.kt`,
+fully answered the open questions) and implemented it: `PremiumState` (local pre-billing flag,
+default unlocked), `AppIconIndicatorSettings` (opt-in toggle, default off), `packageName` added to
+`IndicatorSlotUiState`, the OTHER overflow slot structurally excluded from ever getting an app icon,
+`PackageManager.getApplicationIcon()` rendering with per-slot fallback to the existing category
+icon/dot. `reviewer-lite` approved after direct diff inspection (no billing code present, gating
+logic correct, OTHER-slot exclusion double-enforced, clean independent build) and logged one
+non-blocking follow-up (`docs/QA.md` #23: the toggle doesn't live-refresh mid-session, same class as
+#18/#21 below). Merged via a normal `gh pr merge` with no classifier block.
+
+**[Issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17) implemented directly, merged
+(PR #20).** Small enough that the main session implemented and reviewed it directly rather than via
+`developer-lite`/`reviewer-lite` (the lighter `fix/<slug>` flow already covers this): reduced
+`ColorPickerSection` to exactly 5 preset swatches, removed the HEX field and `parseHexColorOrNull`
+(no remaining call sites), removed the two now-orphaned string resources. Confirmed via a status-check
+exchange with the user that "freemium系2項目" in an earlier instruction meant exactly these two items
+(`source-app-icon-indicator-mode` + this issue) — matches how the previous handoff itself grouped
+them.
+
+**A recurring "settings toggle doesn't live-refresh mid-session" bug fixed generically (PR #21),
+`docs/DECISIONS.md` §24 added.** By this point `docs/QA.md` had #18 (`BatteryLevelReceiver`), #21
+(`CountBadgeSettings`/`SlotIcon`), and #23 (`AppIconIndicatorSettings`/`SlotIcon`) as three separate
+instances of the same-shaped complaint. Investigating together showed two distinct root causes, not
+one: (a) a `@Composable` reading a plain Kotlin property instead of a Compose `State` (#21, #23) —
+fixed by backing the cache with `mutableStateOf` instead of `@Volatile var`, a drop-in change with no
+call-site edits; (b) a callback (`BatteryLevelReceiver.onReceive()`) reading a value captured once at
+registration instead of the current value (#18) — fixed by giving `BatteryThresholdSettings` the same
+`DndSettings`-style live cache other settings already use, read fresh on every broadcast.
+`PremiumState` was deliberately left untouched (no live in-session way to toggle it exists yet, so no
+bug to fix there). All three QA items moved to Resolved; `docs/DECISIONS.md` §24 documents both fix
+shapes generically so a future feature applies the right one instead of rediscovering it.
+
+**`docs/QA.md` #17 (DND-cache startup race) resolved directly (PR #22).** Also implemented and
+reviewed directly rather than via agents, since the fix was small and precisely understood: instead
+of `DndSettings.refreshCache()` running as a separate fire-and-forget coroutine in `onCreate()` while
+`ScreenStateReceiver` registered synchronously in `onStartCommand()`, registration now happens inside
+the same coroutine as the refresh, after it completes — the receiver structurally cannot fire before
+the cache is populated, since it isn't registered yet. A boolean guard
+(`screenStateReceiverRegistrationStarted`) replaces the old null-check to prevent double-registration,
+mirroring the same async-registration-then-field-assignment shape already used (and reviewed) for
+`batteryLevelReceiver`.
+
+**`docs/QA.md` #16 (OEM doze quirk) — live investigation, not resolved, new evidence added.** At the
+user's request, set up **Wi-Fi adb** for the first time in this project (paired + connected to arrows
+We2 Plus over the network, no USB cable) specifically to test the previous handoff's own "needs a
+repeat with adb over Wi-Fi (no USB cable in the loop)" ask. The user is not deeply technical about adb
+internals, so the whole pairing/reconnect flow and the repro test itself were walked through in plain,
+jargon-free language rather than assuming familiarity with terms like "pairing code" or "wakefulness."
+Captured logcat across repeated screen-off/screen-on cycles: the device's own inactivity timeout
+reliably put it into `WAKEFULNESS_DOZING`, but the full-screen-intent notification woke it from Dozing
+and launched `FakeSleepActivity` successfully every single time, with zero reproductions of the
+original failure. This is evidence *against* "merely entering Dozing blocks the launch" as a
+sufficient explanation on its own, and is consistent with (though doesn't conclusively prove) the
+original USB-cable-interference hypothesis from `docs/QA.md` #16's first entry. The battery-only
+(no adb at all) test #16 also asks for is still undone. No code changed as a result of this round.
+
+**A long, iterative settings-screen UI overhaul, driven entirely by live on-device feedback across
+many rounds, merged as PR #24.** This started from a single concrete report (the newly-shipped
+app-icon toggle from PR #19 was structurally present but invisible) and grew, through repeated
+screenshot-and-critique cycles with the user, into a near-total rework of `MainSwitchScreen`,
+`CategorySettingsScreen`, and `KeywordSettingsScreen`:
+- `MainSwitchScreen` gained actual scrolling (it had none — a `Box`-centered `Column` that silently
+  clipped both ends once enough rows had accumulated across many past features, hiding both the new
+  toggle and the pre-existing category-settings button) with safe-drawing inset padding.
+- Every row was reordered to a mockup image the user provided, and unified onto two new shared
+  composables (`SettingsSwitchRow`, `SettingsNavigationRow`) so the whole screen reads as one
+  consistent label-left/control-right layout instead of a mix of centered blocks and left-aligned
+  rows — including giving every row label `weight(1f)` late in the process, after the user
+  specifically asked whether narrow-width screens had been considered (they hadn't been).
+- DND's label now spells out "(DND)" (the user pointed out "おやすみモード" reads too similarly to
+  "サイレントモード," a completely different Android concept) and its default flipped from
+  hide-during-DND to show-during-DND, on the reasoning that a silent visual-only indicator doesn't
+  conflict with what DND is meant to suppress, and a missed notification is worse for this app's
+  purpose than one shown silently — the original `true` default had no recorded rationale at all.
+  Quiet-hours dropped its katakana loanword label, and its start/end time buttons are now actually
+  disabled while off (previously tappable regardless).
+- The blink-interval slider became a −/+ stepper; the color picker marks the selected swatch directly
+  instead of a separate preview circle (safe to drop the "might not match a preset" fallback case
+  entirely, since this app has never been distributed to anyone — no legacy HEX-set values exist to
+  protect).
+- The app-icon-indicator row now routes to a new `PremiumInfoScreen` when locked (a disabled
+  placeholder purchase button, no billing code — explicitly confirmed with the user that wiring a
+  real purchase flow later is fine to defer, matching the project's established pre-billing-seam
+  pattern) instead of hiding entirely, so the feature stays discoverable before it's unlocked.
+- `CategorySettingsScreen`/`KeywordSettingsScreen` both switched from "flat app list + a separate
+  detail panel below it" to an accordion — tapping an app expands its category picker / keyword
+  editor directly underneath, closing the previous gap where it wasn't visually clear which app a
+  change applied to. Category chips now render the actual indicator icon (required moving
+  `IndicatorCategory.drawableRes()` out of `FakeSleepActivity.kt`'s private scope into
+  `IndicatorCategory`'s own file so both places could use it) alongside their text label, and the
+  chip row switched from horizontal-scroll to `FlowRow` (wraps onto a second line) since horizontal
+  scroll wasn't discoverable — confirmed the wrap visibly kicks in on the Sharp AQUOS sense9's
+  narrower screen once that device was also connected and given the same build.
+- One correction along the way: an early pass in this same overhaul reverted the color-picker label
+  from "アイコンの色" back to "インジケーターの色," undoing a wording the user had already settled on
+  in an unrelated earlier mockup — caught and fixed once the user flagged it, recorded here as a
+  reminder that a user-supplied mockup's exact text is a specification, not a suggestion to weigh
+  against "don't rename things that aren't in scope."
+
+**Filed [issue #23](https://github.com/hachi921082-source/VirtuaLED/issues/23), not fixed**: the user
+noticed live that burn-in protection's periodic repositioning can push part of the indicator
+off-screen. Root-caused by reading the code (not guessed): `BurnInProtector`'s reposition bounds are
+computed from a single hardcoded icon size (`INDICATOR_DOT_SIZE_DP`), which doesn't account for the
+actual rendered footprint once multiple slots spread into a 2x2 grid, a high-importance icon scales
+1.5x, or the count badge hangs off a corner — any of which can make the true bounding box bigger than
+what the bounds calculation assumes.
+
+**Two stale `docs/plans/README.md` statuses fixed**: `source-app-icon-indicator-mode` and
+`indicator-color-customization` both still read "PR pending" for PRs (#19, #20) that had already been
+merged earlier in this same session — caught when the user directly asked "isn't
+`source-app-icon-indicator-mode` still outstanding?" after a status summary failed to mention it was
+actually done, a reminder to re-verify doc status against `gh pr view` rather than trusting a status
+line written earlier in the same session before believing something is still outstanding.
+
+**Workflow notes worth carrying forward**: this session established **Wi-Fi adb** as a working
+pattern for this project (pairing code + connect address both come from the device's own "Wireless
+debugging" screen and change on every reconnect — always ask the user for the current values fresh
+rather than assuming a previously-used address still works; `adb pair` persists across reconnects,
+only the connect address rotates). It also surfaced a real gap worth remembering: **a successful
+`assembleDebug` does not mean the device is running that build** — this session ran several rounds of
+code changes and re-testing without noticing the test device was still running a build from hours
+earlier, until the user asked why a default-unlocked feature wasn't visible; always `adb install -r`
+the freshly-built APK before asking the user to verify anything on-device, don't assume an earlier
+install in the same session is still current after further code changes. Finally, several fixes this
+session (issue #17, `docs/QA.md` #17, and the entire UI overhaul) were implemented and reviewed
+directly by the main session rather than delegated to `developer-lite`/`reviewer-lite` — reasonable
+for narrow, well-understood changes or rapid live-device iteration loops, but the full agent flow
+remains the default for anything larger or less thoroughly understood up front.
+
+**Two memory updates recorded**: a new standing rule to proactively tell the user whenever a change
+adds a `strings.xml` key, since `localization-additional-languages` is scoped to whatever keys exist
+at implementation time and a forgotten key silently falls back to the default locale rather than
+erroring; and an explicit instruction, added to the existing "freemium is user-driven" memory, to
+never nudge or suggest picking up `docs/QA.md` #22 (the real premium-gating mechanism/price point) —
+it is deliberately the last item on this project's roadmap and the user does not want it raised
+proactively, only answered if asked about directly.
+
+## 19. Still Open
+
+- **`localization-additional-languages`** is now the only feature remaining from the original
+  10-item `other/`-tier list (§12) — not started. Per its own plan's design, it should track
+  whatever `strings.xml` keys exist at implementation time, and this session's UI overhaul (§18)
+  added/renamed a substantial number of them — see the new memory rule (§18) about flagging new
+  keys, and expect to sweep the *current* `strings.xml` rather than one from an earlier handoff.
+- **[Issue #23](https://github.com/hachi921082-source/VirtuaLED/issues/23)** — burn-in
+  protection's reposition bounds use a single hardcoded icon size and can push part of the
+  indicator off-screen once the real rendered footprint (multi-slot grid, 1.5x high-importance
+  scaling, or the count badge's corner overhang) exceeds that assumption. Filed with a specific
+  root-cause hypothesis, not yet fixed.
 - **Real premium-gating mechanism, price point, and the Play Console distribution-model
-  transition** needed for actual billing are all explicitly undecided (`docs/QA.md`, PR #18's own
-  #21/soon-to-be-#22). **Do not start Play Console/distribution-model work, or
-  notification-listener-permission Play-review prep, until the user explicitly instructs it** — a
-  boundary the user set in the freemium-consultation session (§16).
-- **`other/`-tier build order**: with `category-icons-and-assets` (PR #15) and
-  `multi-notification-stacking` (PR #16) both merged, only `localization-additional-languages`
-  remains from the original 10-feature list (§12), plus the two new freemium-driven items above
-  (source-app-icon mode, issue #17).
-- **`docs/QA.md` #16** — OEM ambient/doze wakefulness quirk (`WAKEFULNESS_DOZING`) on arrows We2
-  Plus; root cause still not isolated. Not a blocker.
-- **`docs/QA.md` #17/#18/#19/#21** — narrow non-blocking follow-ups (DND-cache-refresh race,
-  battery-threshold slider and count-badge toggle not live-refreshing while running, quiet-hours
-  real-time alarm-fires-while-active path verified by code review only). None are blockers; worth a
-  design decision at some point — #18 and #21 in particular are the same underlying pattern
-  (settings toggle not live-refreshed mid-session) recurring across 3 unrelated features now, which
-  may be worth solving once, generically, rather than per-feature.
+  transition** needed for actual billing are all still explicitly undecided (`docs/QA.md` #22).
+  **Do not start Play Console/distribution-model work, or notification-listener-permission
+  Play-review prep, and do not proactively raise or suggest picking this item up** — the user has
+  twice now (§16, §18) set this boundary, most recently asking explicitly not to be nudged about it
+  even in "still open" summaries; answer if asked directly, otherwise leave it alone.
+- **`docs/QA.md` #16** — OEM ambient/doze wakefulness quirk on arrows We2 Plus. §18 added evidence
+  *against* "entering `WAKEFULNESS_DOZING` alone blocks the launch" (zero reproductions across a
+  whole Wi-Fi-adb, no-USB-cable session), consistent with but not proof of the original
+  USB-interference hypothesis. The battery-only (no adb at all) test this item also asks for is
+  still undone. Not a blocker; a confirmed reliable workaround (force-stop + relaunch) exists either
+  way.
+- **`docs/QA.md` #19** — `auto-stop-conditions`/quiet-hours' "alarm fires while a session is
+  visibly active → force-end" path is still verified by code review only, not a live real-time
+  test (carried over unchanged for several sessions — the test device's aggressive re-lock timing
+  keeps interrupting the timed setup needed). Not a blocker.
 - **This repo has no worktree isolation between concurrent sessions, and stray commits can land
-  inside another session's branch, not just move `master`/`HEAD`** (discovered §16, sharpened §17) —
-  before any future concurrent-session work, re-verify branch/HEAD state fresh (`git status`,
+  inside another session's branch, not just move `master`/`HEAD`** (discovered §16, sharpened §17)
+  — before any future concurrent-session work, re-verify branch/HEAD state fresh (`git status`,
   `git branch --show-current`, `git log --oneline`, `git reflog`) rather than trusting an earlier
   read in the same conversation, and read §17's "practical addition" paragraph if a mixed-branch
-  situation like this one comes up again.
+  situation like this one comes up again. Not triggered again in §18's session (no concurrent
+  session was active), but the risk is structural, not one-time.
+- **Wi-Fi adb pairing/connect addresses rotate on every reconnect** (discovered §18) — always ask
+  the user for the device's current "Wireless debugging" screen values fresh rather than assuming a
+  previously-used address still works; `adb pair` itself persists, only the connect address changes.
+- **A successful `assembleDebug` does not mean the connected device is running that build**
+  (discovered the hard way in §18, after several rounds of code changes without reinstalling) —
+  always `adb install -r` the freshly-built APK before asking the user to verify anything on a real
+  device, every time, not just after the first install of a session.
 - **Package name placeholder** (`com.virtualed.app`): still unconfirmed, not urgent (carried over).
 - **Old `NO-LED` folder cleanup** (`c:\Users\<user>\vscode2\NO-LED`): status not re-checked in
   several sessions; carried over.
@@ -1016,52 +1180,44 @@ to avoid a duplicate.
 - **Secure-keyguard mechanism** (`docs/DECISIONS.md` §18): confirmed on arrows We2 Plus; a confirmed
   secure-lock pass specifically on the Sharp AQUOS sense9 is still outstanding (carried over
   unchanged for several sessions now).
-## 19. Recommended Next Step
 
-**MVP is fully complete** (§11). Of the 10 original `other/`-tier features (§12), all but one are
-done: `dnd-handling` (PR #8), `auto-stop-conditions` ×3 (PRs #9/#10/#14), `burn-in-protection`
-(PR #11), `indicator-color-customization` (PR #12, but see the pending 5-preset revision below),
+## 20. Recommended Next Step
+
+**MVP is fully complete** (§11). Of the original 10-item `other/`-tier list (§12), 9 are now done —
+`dnd-handling` (PR #8), `auto-stop-conditions` ×3 (PRs #9/#10/#14), `burn-in-protection` (PR #11),
+`indicator-color-customization` (PR #12, revised to 5 presets via issue #17/PR #20),
 `importance-based-sizing` (PR #13), `category-icons-and-assets` (PR #15), and
-`multi-notification-stacking` (PR #16) are all merged. Only `localization-additional-languages`
-remains from that original list. Two new freemium-driven items (§16) are additionally in flight via
-PR #18.
+`multi-notification-stacking` (PR #16) are all merged, and the freemium-driven
+`source-app-icon-indicator-mode` (PR #19) shipped alongside them this session (§18). **Only
+`localization-additional-languages` remains.**
 
-1. **Review and merge PR #18** (`docs/freemium-source-app-icon-planning`) — docs-only, 7 commits.
-   Read it against `docs/DECISIONS.md` §22/§23 and `docs/detailed-spec.md` §20/§21 for internal
-   consistency; a full `reviewer-lite` pass is probably unnecessary for a pure docs change, but use
-   judgment. **Before merging, renumber its `docs/QA.md` "#21" entry to #22** — #21 is already taken
-   in `master` by `multi-notification-stacking`'s own QA finding (§17).
-2. **Write `docs/plans/other/source-app-icon-indicator-mode/PLAN.md`** from `docs/detailed-spec.md`
-   §20/§21 (once PR #18 is merged), then implement via the normal `developer-lite`/`reviewer-lite`
-   flow. §20 already resolves the feature's interaction with `multi-notification-stacking`'s slot
-   grouping (per-app 1:1 mapping for the 4 real slots; the OTHER overflow slot has no single
-   representative app and always falls back to the category icon) — no further design work needed
-   there before writing the plan.
-3. **Pick up [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17)**
-   (indicator-color-customization: 5 presets, remove HEX) via the lighter `fix/<slug>` Issue→PR flow
-   (`~/.claude/shared/dev-workflow.md` §2) — small, self-contained, doesn't need a new `PLAN.md`.
-4. **`localization-additional-languages`** is the last item from the original `other/`-tier list —
-   pick up once the above settle, per its own plan's design (tracks whatever `strings.xml` keys
-   exist at the time it's implemented).
-5. **Leave billing mechanism, pricing, and Play Console/distribution-model work untouched** until
-   the user explicitly asks for it (§16/§17) — this includes not front-loading any
-   notification-listener-permission Play-review prep either.
-6. **`docs/QA.md` #17/#18/#19/#21** (all non-blocking) are worth a design decision at some point;
-   #18 and #21 in particular are the same "settings toggle doesn't live-refresh mid-session" pattern
-   recurring across `auto-stop-conditions`/battery and `multi-notification-stacking` now — consider
-   solving it once, generically (e.g. making the relevant `FakeSleepIndicatorUiState`/session-facing
-   settings reads Compose-observable), rather than per-feature each time it resurfaces.
-7. When a `gh pr merge` gets blocked, apply the workflow preference from §8/§9/§10: ask via
-   `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than retrying
-   `gh pr merge` itself — though note PR #16 this session merged via a plain `gh pr merge` with no
-   classifier block, so this may no longer be as reliably necessary as earlier sessions found it.
-8. If more live on-device testing is needed with the user, read §14's closing paragraph first (the
-   established pattern for working efficiently around this device's short re-lock timer and the
-   `docs/QA.md` #16 doze quirk) — and for posting *multiple distinct-app* test notifications
-   specifically, remember §17's finding that `adb shell cmd notification post` cannot do this (it
-   always overwrites one single fixed notification); use real installed apps instead.
-9. **If working in this repo at the same time as another session, read §17's "practical addition"
+1. **`localization-additional-languages`** — the last item from the original `other/`-tier list, and
+   now the only one left. Read its own `PLAN.md` first (it should specify which languages/how the
+   translation pass works), then sweep the *current* `app/src/main/res/values/strings.xml` — §18's
+   UI overhaul added and renamed a substantial number of keys, so don't work from an older mental
+   model of what strings exist.
+2. **[Issue #23](https://github.com/hachi921082-source/VirtuaLED/issues/23)** (burn-in reposition
+   can push the indicator off-screen) — the root cause is already identified (§18): fix
+   `slotGroupSizePx`'s calculation in `FakeSleepActivity.kt` to reflect the actual rendered
+   bounding box (slot count, high-importance scaling, badge overhang) instead of one hardcoded
+   single-icon constant.
+3. **Leave billing mechanism, pricing, and Play Console/distribution-model work untouched, and do
+   not proactively raise it** — `docs/QA.md` #22, boundary reaffirmed twice now (§16, §18). This
+   applies to status summaries and "what's left" lists too, not just implementation work.
+4. **`docs/QA.md` #16 and #19** (both non-blocking, both carried over) are candidates for
+   opportunistic follow-up if a device is available and cooperative, but neither blocks anything —
+   see §19 for exactly what each still needs.
+5. If more live on-device testing is needed: `docs/QA.md` note above re Wi-Fi adb addresses
+   rotating on reconnect, and re `adb install -r` before every verification round, not just the
+   first. §14's closing paragraph still has the established pattern for working around this
+   device's short re-lock timer. For posting *multiple distinct-app* test notifications, `adb shell
+   cmd notification post` still can't do it (§17's finding) — use real installed apps.
+6. **If working in this repo at the same time as another session, read §17's "practical addition"
    paragraph before touching git** — there is no worktree isolation, stray commits can land inside
    another session's own branch (not just move `master`/`HEAD`), and re-verifying git state fresh
    (`git status`, `git branch --show-current`, `git log --oneline`, `git reflog`) before trusting
    any earlier read in the same conversation is the safest default.
+7. For small, well-understood, narrowly-scoped fixes, direct main-session implementation (as done
+   for issue #17, `docs/QA.md` #17, and §18's UI overhaul) is an established and accepted
+   alternative to the full `developer-lite`/`reviewer-lite` flow — use judgment on which fits a
+   given task, the full flow is still the default for anything larger or less well-understood.
