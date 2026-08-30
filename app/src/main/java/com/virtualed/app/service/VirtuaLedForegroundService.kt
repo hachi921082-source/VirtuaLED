@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import com.virtualed.app.R
 import com.virtualed.app.autostop.BatteryLevelReceiver
 import com.virtualed.app.autostop.QuietHoursScheduler
+import com.virtualed.app.data.AppIconIndicatorSettings
 import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.CategorySettings
@@ -23,6 +24,7 @@ import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.KeywordRegistry
 import com.virtualed.app.data.PendingNotificationsRepository
+import com.virtualed.app.data.PremiumState
 import com.virtualed.app.data.QuietHoursSettings
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.overlay.FakeSleepSessionController
@@ -90,6 +92,12 @@ class VirtuaLedForegroundService : Service() {
         // docs/plans/other/multi-notification-stacking/PLAN.md §5 — SlotIcon の件数バッジ描画は
         // Compose の同期パスのため、同じ理由でサービス起動時に読み込む。
         serviceScope.launch { CountBadgeSettings.refreshCache(applicationContext) }
+
+        // docs/plans/other/source-app-icon-indicator-mode/PLAN.md §8 — SlotIcon のアプリアイコン
+        // 描画可否判定 (プレミアム解放フラグ + トグル設定) も同じく Compose の同期パスのため、
+        // 同じ理由でサービス起動時に読み込む。
+        serviceScope.launch { PremiumState.refreshCache(applicationContext) }
+        serviceScope.launch { AppIconIndicatorSettings.refreshCache(applicationContext) }
 
         // docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §3 — しきい値の読み込みが非同期な
         // ため、DataStore からの読み込み完了後に登録する。ACTION_BATTERY_CHANGED は sticky broadcast
