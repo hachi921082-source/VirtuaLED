@@ -149,6 +149,7 @@ the `other/` tier in this order:
   inline palette/HEX picker in `MainSwitchScreen` (no separate settings screen — this app has no
   navigation component, same convention already used for the DND/battery settings). Live color
   changes propagate to an active session via `FakeSleepActivityHolder.indicatorUiState?.tintColor`
-  independent of persistence. **Needs a follow-up revision, not yet implemented**: reduce to 5
-  presets and remove the HEX field entirely (`docs/DECISIONS.md` §23, `PLAN.md` §3/§4) — code
-  change to `ColorPickerSection` in `MainActivity.kt` still pending.
+  independent of persistence. **Needs a follow-up revision, tracked as
+  [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17), not yet implemented**:
+  reduce to 5 presets and remove the HEX field entirely (`docs/DECISIONS.md` §23, `PLAN.md` §3/§4)
+  — code change to `ColorPickerSection` in `MainActivity.kt` still pending.
