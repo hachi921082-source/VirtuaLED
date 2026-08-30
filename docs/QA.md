@@ -161,12 +161,12 @@ and contradictions before writing the MVP feature plans).
     and `FakeSleepIndicatorUiState.tintColor` (would need to become per-category, e.g. a
     `Map<IndicatorCategory, Color>` or five separate `MutableState`s instead of one shared value).
     **Follow-up (2026-08-30)**: during a freemium-monetization discussion (`docs/DECISIONS.md` §22),
-    the user deprioritized this in favor of source-app-icon display (see item 21 below) — judged
+    the user deprioritized this in favor of source-app-icon display (see item 22 below) — judged
     more valuable to users for the same implementation slot. Still not implemented, still not
     currently planned; left here as a candidate for later, not picked up by §22's premium-feature
     work.
 
-21. Should this app's freemium tier (`docs/DECISIONS.md` §22) gate on a real Google Play Billing
+22. Should this app's freemium tier (`docs/DECISIONS.md` §22) gate on a real Google Play Billing
     purchase, or something simpler for a personal/low-price app (e.g. a one-time unlock code, or
     even trusting a settings toggle)? Not decided — §22 deliberately defers this by building the
     premium feature (source-app-icon indicator display) behind a local `isPremiumUnlocked` flag
