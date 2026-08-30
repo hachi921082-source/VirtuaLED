@@ -22,8 +22,10 @@
     importance-based-sizing, auto-stop-conditions/quiet-hours (Follow-Up Session)
 15. category-icons-and-assets: Implementation, Review, and an Extensive Live-Device Bug Hunt
     (Follow-Up Session, PR #15 Open, Not Yet Merged)
-16. Still Open
-17. Recommended Next Step
+16. Freemium Monetization Consultation and a Parallel-Session Git-Sharing Discovery (Follow-Up
+    Session, Consultation-Only — No Code Changes)
+17. Still Open
+18. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -827,93 +829,158 @@ That surfaced **3 more real findings**, fixed and pushed but **not yet reviewed 
 finalized). No new `docs/QA.md` entries were added this round (all 8 findings were fixed directly,
 not deferred).
 
-## 16. Still Open
+## 16. Freemium Monetization Consultation and a Parallel-Session Git-Sharing Discovery (Follow-Up Session, Consultation-Only — No Code Changes)
 
-- **PR #15 (`category-icons-and-assets`) is open, not merged** (§15) — this is the immediate blocker
-  before anything else `other/`-tier proceeds. Specifically open: whether commit `34371f6` (dropping
-  `MATCH_DEFAULT_ONLY`) actually makes Rakuten Link (`jp.co.rakuten.mobile.rcs`) appear in the app
-  picker on-device — the user asked to verify this in a fresh session rather than continuing in this
-  one. See §17 for the exact resume steps.
-- **`docs/plans/README.md`'s `category-icons-and-assets` row is stale** (§15) — still reads "blocked
-  on QA #13," which is now resolved (`docs/DECISIONS.md` §21). Update once PR #15 actually merges,
-  not before (the row should reflect merged reality, matching every other `other/`-tier row's
-  convention).
-- **`other/`-tier build order** (§12): the remaining recommended order after `category-icons-and-assets`
-  is `multi-notification-stacking` → `localization-additional-languages`. The first 8 of 10 features
-  are now done (`dnd-handling`, `auto-stop-conditions` ×3, `burn-in-protection`,
-  `indicator-color-customization`, `importance-based-sizing`, quiet-hours) — `category-icons-and-assets`
-  is the 9th, in progress. `multi-notification-stacking` is intentionally last-but-one since it's more
-  meaningful to build/test once `category-icons-and-assets` (per-slot icons) already exists — which
-  will be true once PR #15 merges. `localization-additional-languages` is last by its own plan's
-  design (tracks whatever `strings.xml` keys exist at the time it's implemented).
-- **`docs/QA.md` #17** — a narrow, non-blocking DND-cache-refresh race on service start (§13). Not a
-  blocker.
-- **`docs/QA.md` #18** — the battery-threshold slider doesn't live-refresh while the service is
-  already running (§13). Not a blocker, unresolved design question.
-- **`docs/QA.md` #19** — quiet-hours' real-time alarm-fires-while-session-active path is verified by
-  code review only, not an actual timed on-device test (§14). Not a blocker.
-- **`FakeSleepIndicatorUiState` is now fully implemented** — all 5 originally-sketched properties
-  (`indicatorVisible`, `indicatorOffset`, `tintColor`, `slots`, `blinkIntervalMs`) exist and are wired,
-  as of `importance-based-sizing`/`category-icons-and-assets` (§14/§15). No longer a partial surface —
-  this line in earlier handoffs is now resolved, kept here only as a closure note.
-- **This session's device-testing pattern is now established practice** (§14's closing paragraph) —
-  worth reading before doing more live `adb`-driven testing with the user: batch non-visual `adb`
-  verification, ask for unlock only right before a UI-interaction step, avoid multi-minute real-time
-  waits where a `dumpsys`-based check can substitute.
-- **Package name placeholder**: `com.virtualed.app`, still unconfirmed by the user — not urgent, not
-  a blocker (§5/§6).
-- **Old `NO-LED` folder cleanup**: `c:\Users\<user>\vscode2\NO-LED` — status not re-checked in several
-  sessions; carried over.
+This session opened as a documentation/spec consultation only, explicitly run alongside — not
+instead of — a separate session doing PLAN implementation in the same repo, per the user's own
+framing at the start. No `developer-lite`/`reviewer-lite` agent work happened here; every change
+this session made is a `docs/` edit made directly.
+
+**Freemium monetization direction decided** (discussed directly with the user, not delegated):
+distribute as a low-price freemium app (a rough ¥100–200 figure was mentioned, not finalized)
+rather than pure donationware — superseding §11's donationware framing (given a forward-pointer
+note there rather than being rewritten, matching this doc's established correction style). Two
+candidate premium features were discussed: per-category indicator color, and displaying the
+notification-source app's own launcher icon instead of the fixed category icon set. The user chose
+to build only the latter, judging it more valuable to users for the same implementation effort;
+per-category color is deprioritized — not implemented, not currently planned (`docs/QA.md` #20
+carries a follow-up note).
+
+**Decision**: build the source-app-icon feature now as a fully working feature, gated by one local
+`isPremiumUnlocked` DataStore-backed flag defaulting to unlocked (`true`) — no real billing exists
+yet, so this lets the feature ship and be exercised/tested on-device before any purchase flow is
+built. Recorded as `docs/DECISIONS.md` §22 (extends §7's empty-placeholder pattern to a concretely
+working feature). `docs/detailed-spec.md` gained §20 (the feature itself) and §21 (the gating
+mechanism); `docs/spec.md` §4/§5 updated to match. The real billing mechanism, exact price, and the
+Play Console distribution-model transition real billing would need are all explicitly still
+undecided (`docs/QA.md` #21) — **the user set an explicit boundary this session: do not start any
+Play Console/distribution-model work, or notification-listener-permission Play-review prep, until
+told to.**
+
+**Knock-on decision**: since color no longer needs to vary per icon, the user also decided to
+reduce `indicator-color-customization`'s already-shipped (PR #12) UI from an 8-swatch-palette-plus-
+HEX-field down to exactly 5 presets with no HEX input — partly because 8+ free-form choices are
+now unnecessary for a single shared color, partly to avoid the same wrap/scroll layout risk the
+`category-icons-and-assets` chip-row bug (§15, item 3 above) already proved is real on this
+project's actual test devices. Recorded as `docs/DECISIONS.md` §23; `docs/detailed-spec.md` §19 and
+`docs/plans/other/indicator-color-customization/PLAN.md` §3/§4 updated with the specific code-level
+follow-up needed (`ColorPickerSection` in `MainActivity.kt`; remove `parseHexColorOrNull`'s UI call
+site). Filed as **[GitHub issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17)** —
+judged small/self-contained enough for the lighter `fix/<slug>` Issue→PR flow
+(`~/.claude/shared/dev-workflow.md` §2), not the heavier PLAN-based flow.
+
+**`multi-notification-stacking` interaction resolved by reading real code, not just its `PLAN.md`**:
+while spec'ing the source-app-icon feature's interaction with slot-based multi-notification
+display, this session discovered `multi-notification-stacking` — "planned but not started" per
+§12/§16 of the previous handoff — is now **already implemented** by the parallel session
+(`IndicatorSlotBuilder.kt` and related files exist; 9 implementation commits; **PR #16 open**).
+Reading `IndicatorSlotBuilder.kt` directly (rather than trusting the plan's prose) settled the
+interaction: grouping is strictly per-app (`pending.groupBy { it.packageName }`), so each of the up
+to 4 real slots already maps 1:1 to exactly one app — no ambiguity there. Two concrete follow-ups
+recorded in `docs/detailed-spec.md` §20: `IndicatorSlotUiState` needs a `packageName` field added
+(currently resolved but discarded inside `IndicatorSlotBuilder.build()`), and the 5th+-app "OTHER"
+overflow slot has no single representative app, so it must always fall back to the category icon
+regardless of whether app-icon mode is enabled.
+
+**Major mid-session discovery: this session and the parallel implementation session share one
+working directory, not separate worktrees.** `git worktree list` showed exactly one entry for this
+repo. `git reflog` showed the branch moving underneath this session purely from the parallel
+session's own activity — `master` → `feature/category-icons-and-assets` (merged as **PR #15**) →
+`master` → `feature/multi-notification-stacking` (9 implementation commits, **PR #16** opened) —
+interleaved with this session's own doc-only edits, which were sitting uncommitted on top the whole
+time without conflict. Concretely, this means `docs/plans/README.md`'s `category-icons-and-assets`
+row already read "Done (merged PR #15)" when re-read mid-session (not something this session did),
+and `multi-notification-stacking` turned out to already be implemented with PR #16 open — both
+**ahead of what §15/§16/§17 of the previous handoff described**, which is now stale on those two
+points.
+
+When this sharing was discovered, the user was asked how to handle this session's 6 uncommitted doc
+files then sitting on `feature/multi-notification-stacking`; the user chose to commit them there
+immediately (one file per commit, per this repo's convention) rather than stash or defer — done: 8
+commits total this session (`7cb62b7`..`3f0b08e`), then pushed to
+`origin/feature/multi-notification-stacking` as part of this session's wind-down. **Practical
+implication for future sessions working in this repo concurrently with another session**: there is
+no worktree isolation here — before editing anything, re-run `git status` /
+`git branch --show-current` / `git reflog` fresh rather than trusting an earlier read from the same
+conversation, since another session can and does change branch/HEAD state mid-conversation.
+
+## 17. Still Open
+
+- **PR #16 (`multi-notification-stacking`) is open** — implemented (9 feature commits, per §16
+  above), plus this session's 8 unrelated doc-only commits now sitting on top of the same branch.
+  As of this session's evidence it had not yet had a `reviewer-lite` pass or been merged — but per
+  §16's git-sharing discovery, **re-check `gh pr list`/`git log` fresh** before assuming that's
+  still true, since the parallel session may have progressed further since this was written.
+- **`source-app-icon-indicator-mode` needs a `PLAN.md`** — spec-only so far
+  (`docs/detailed-spec.md` §20/§21, `docs/DECISIONS.md` §22). Not started.
+- **[Issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17)** — reduce
+  `indicator-color-customization`'s picker to 5 presets, remove the HEX field
+  (`docs/DECISIONS.md` §23). Filed, not yet implemented; small/self-contained, fits the lighter
+  `fix/<slug>` flow.
+- **Real premium-gating mechanism, price point, and the Play Console distribution-model
+  transition** needed for actual billing are all explicitly undecided (`docs/QA.md` #21). **Do not
+  start Play Console/distribution-model work, or notification-listener-permission Play-review
+  prep, until the user explicitly instructs it** — a boundary the user set this session (§16).
+- **`other/`-tier build order** (§12, updated per §16's discovery): with `category-icons-and-assets`
+  merged (PR #15) and `multi-notification-stacking` implemented (PR #16, pending merge), only
+  `localization-additional-languages` remains from the original 10-feature list, plus the two new
+  freemium-driven items above (source-app-icon mode, issue #17).
+- **`docs/QA.md` #16** — OEM ambient/doze wakefulness quirk (`WAKEFULNESS_DOZING`) on arrows We2
+  Plus; root cause still not isolated. Not a blocker.
+- **`docs/QA.md` #17/#18/#19** — narrow non-blocking follow-ups (DND-cache-refresh race, battery-
+  threshold slider not live-refreshing, quiet-hours real-time alarm-fires-while-active path verified
+  by code review only). None are blockers; worth a design decision at some point.
+- **This repo has no worktree isolation between concurrent sessions** (discovered §16) — before any
+  future concurrent-session work, re-verify branch/HEAD state fresh (`git status`,
+  `git branch --show-current`, `git reflog`) rather than trusting an earlier read in the same
+  conversation.
+- **Package name placeholder** (`com.virtualed.app`): still unconfirmed, not urgent (carried over).
+- **Old `NO-LED` folder cleanup** (`c:\Users\<user>\vscode2\NO-LED`): status not re-checked in
+  several sessions; carried over.
 - **App icon**: interim Material Symbols plan stands, final art deferred (carried over).
-- `docs/QA.md` #16 — the OEM ambient/doze wakefulness quirk (`WAKEFULNESS_DOZING`) on arrows We2
-  Plus (§11); not reproduced again in §14/§15's extensive testing this session, but root cause still
-  not isolated. Not a blocker.
-- Secure-keyguard mechanism (`docs/DECISIONS.md` §18): confirmed on arrows We2 Plus (§8, §11); a
-  confirmed secure-lock pass specifically on the Sharp AQUOS sense9 is still outstanding, not a
-  blocker (carried over unchanged for several sessions now).
+- **Secure-keyguard mechanism** (`docs/DECISIONS.md` §18): confirmed on arrows We2 Plus; a confirmed
+  secure-lock pass specifically on the Sharp AQUOS sense9 is still outstanding (carried over
+  unchanged for several sessions now).
 
-## 17. Recommended Next Step
+## 18. Recommended Next Step
 
-**MVP is fully complete** (§11), the `other/`-tier pre-implementation cross-consistency review and
-architecture fix are done (§12), and 8 of 10 `other/`-tier features are implemented, reviewed, and
-merged (§13/§14): `dnd-handling` (PR #8), `auto-stop-conditions`/battery (PR #9),
-`auto-stop-conditions`/proximity (PR #10), `burn-in-protection` (PR #11),
-`indicator-color-customization` (PR #12), `importance-based-sizing` (PR #13),
-`auto-stop-conditions`/quiet-hours (PR #14). `category-icons-and-assets` (the 9th) is implemented,
-reviewed, and extensively live-tested, but **PR #15 is still open, not merged** (§15) — this is
-where the next session should pick up.
+**MVP is fully complete** (§11). Of the 10 original `other/`-tier features (§12), 9 are done:
+`dnd-handling` (PR #8), `auto-stop-conditions` ×3 (PRs #9/#10/#14), `burn-in-protection` (PR #11),
+`indicator-color-customization` (PR #12, but see the pending revision below),
+`importance-based-sizing` (PR #13), `category-icons-and-assets` (PR #15, merged since the previous
+handoff was written), and `multi-notification-stacking` (implemented, PR #16 open). Only
+`localization-additional-languages` remains from that original list. This session (consultation-
+only, §16) added two new freemium-driven items on top.
 
-1. **Resume PR #15 verification** (§15, item 8 in that section's bug list). The immediate task the
-   user asked to defer to a fresh session: confirm commit `34371f6` (dropping `MATCH_DEFAULT_ONLY`
-   from `InstalledAppPicker.loadInstalledApps()`'s `queryIntentActivities()` call) actually makes
-   Rakuten Link (`jp.co.rakuten.mobile.rcs`) appear in the app picker on the `M06` test device. The
-   fix is already built, committed (`34371f6`), pushed, and was installed on the device at the end of
-   the previous session — a fresh session just needs the user to open the category (or keyword)
-   settings screen and confirm Rakuten Link is now visible in the list. If confirmed working: proceed
-   to step 2. If still missing: investigate further before merging (read `InstalledAppPicker.kt`'s
-   current query logic fresh, and consider whether some other resolution constraint is still filtering
-   it out — the diagnostic technique that worked well this session was `adb shell dumpsys package
-   <pkg>` to inspect the target app's actual declared intent-filters directly, rather than guessing).
-2. **Get a final `reviewer-lite` pass** over the 3 not-yet-reviewed commits (`84f3bb5` size increase,
-   `be71a7b` chip toggle-off, `34371f6` `MATCH_DEFAULT_ONLY` fix) — mirroring the two-round review
-   pattern already used earlier in this same PR (§15) and for quiet-hours (§14). Give the reviewer the
-   full context of *why* each fix exists (user-reported issues during live testing, not self-initiated
-   changes) so it can judge correctness rather than re-relitigating the UX decisions themselves.
-3. **Merge PR #15** once reviewed (ask the user how — `gh pr merge` first per the established
-   preference, §8/§9/§10, falling back to local `git merge --no-ff` + `push` only if blocked), then
-   update `docs/plans/README.md`'s `category-icons-and-assets` row (currently stale, still says
-   "blocked on QA #13") to "Done," matching the convention every other merged `other/`-tier row
-   already follows in that file.
-4. **Continue down the build order**: `multi-notification-stacking` → `localization-additional-languages`
-   (§12/§16). `multi-notification-stacking` becomes meaningful to build/test only once
-   `category-icons-and-assets` is actually merged (per-slot category icons need to exist first) —
-   this is now true once step 3 completes.
-5. Resolve the package name placeholder before any public release is pursued (not urgent now, §5/§6).
-6. `docs/QA.md` #17, #18, #19 (all non-blocking) are worth a design decision at some point but don't
-   block further `other/`-tier implementation.
+1. **Re-verify current git/PR state fresh** before continuing — §16/§17 above found state moving
+   underneath this very session; it may have moved again since this was written. Run `git status`,
+   `git branch --show-current`, `gh pr list` first, in whichever session picks this up next.
+2. **Progress PR #16** (`multi-notification-stacking`) through its normal remaining flow if not
+   already done — `reviewer-lite` pass, then merge (ask the user how; `gh pr merge` first per the
+   established preference §8/§9/§10, local `git merge --no-ff` + `push` only if blocked). This
+   session did not touch that feature's own code or review status, only added unrelated doc commits
+   on top of its branch — those should ride along harmlessly once merged, but confirm the merged
+   diff doesn't look surprising because of it.
+3. **Write `docs/plans/other/source-app-icon-indicator-mode/PLAN.md`** from
+   `docs/detailed-spec.md` §20/§21, then implement via the normal `developer-lite`/`reviewer-lite`
+   flow. `docs/detailed-spec.md` §20 already resolves its interaction with
+   `multi-notification-stacking` (per-app 1:1 slot mapping; OTHER overflow slot always falls back
+   to the category icon) — no further design work needed there before writing the plan.
+4. **Pick up [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17)**
+   (indicator-color-customization: 5 presets, remove HEX) via the lighter `fix/<slug>` Issue→PR flow
+   (`~/.claude/shared/dev-workflow.md` §2) — small, self-contained, doesn't need a new `PLAN.md`.
+5. **`localization-additional-languages`** is the last item from the original `other/`-tier list —
+   pick up once the above settle, per its own plan's design (tracks whatever `strings.xml` keys
+   exist at the time it's implemented).
+6. **Leave billing mechanism, pricing, and Play Console/distribution-model work untouched** until
+   the user explicitly asks for it (§16/§17 above) — this includes not front-loading any
+   notification-listener-permission Play-review prep either.
 7. When a `gh pr merge` gets blocked, apply the workflow preference from §8/§9/§10: ask via
    `AskUserQuestion` with local `git merge` + `git push` as the offered option, rather than retrying
    `gh pr merge` itself.
 8. If more live on-device testing is needed with the user, read §14's closing paragraph first (the
    established pattern for working efficiently around this device's short re-lock timer and the
    `docs/QA.md` #16 doze quirk).
+9. If working in this repo at the same time as another session, read §16's closing paragraph first
+   — there is no worktree isolation, so re-verify git state fresh rather than trusting this
+   document alone.
