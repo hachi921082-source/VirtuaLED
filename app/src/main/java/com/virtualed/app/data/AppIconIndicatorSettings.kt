@@ -1,6 +1,9 @@
 package com.virtualed.app.data
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
@@ -14,6 +17,10 @@ private val Context.appIconIndicatorSettingsDataStore by
  * (プレミアム解放後も opt-in — 色変更よりも見た目の変化が大きいため、docs/detailed-spec.md §20)。
  * CountBadgeSettings と同じ「同期参照キャッシュ + refreshCache()」パターン — SlotIcon の描画は
  * Compose 内の同期パスのため、suspend な DataStore 読み出しをその場で行えない。
+ * キャッシュ自体は Compose の `State` (`mutableStateOf`) で保持する — SlotIcon がこの値を
+ * コンポジション内で読むと Compose のスナップショットシステムに購読され、バックグラウンドの
+ * コルーチンから setEnabled()/refreshCache() が値を更新した際に自動で再コンポーズされる
+ * (docs/QA.md #23)。 プレーンな読み書き (非 Compose 箇所) の挙動は従来と変わらない。
  *
  * この値はユーザーの「意向」のみを保持する。実際に描画へ反映されるかは PremiumState.
  * isPremiumUnlocked() との組み合わせで描画側 (SlotIcon) が判定する — プレミアムがロックされても
@@ -26,7 +33,7 @@ object AppIconIndicatorSettings {
     private val ENABLED_KEY = booleanPreferencesKey("app_icon_indicator_enabled")
 
     // サービス起動時に一度だけ読み込み、設定画面での保存時に更新される同期参照キャッシュ。
-    @Volatile var enabledCached: Boolean = DEFAULT_ENABLED
+    var enabledCached: Boolean by mutableStateOf(DEFAULT_ENABLED)
         private set
 
     suspend fun getEnabled(context: Context): Boolean {
