@@ -83,9 +83,15 @@ the next frame, per the fixed "instant jump" style (`docs/DECISIONS.md` §13).
 
 **Implementation note (deviation from the sketch above)**: `BurnInProtector` is a plain non-Compose
 class with no `Density` access, so `SLOT_GROUP_SIZE_PX` cannot be a self-contained constant computed
-inside the class. It is instead a `slotGroupSizePx: Int` constructor parameter, computed by
-`FakeSleepActivity` at construction time from its dot-size constant (`INDICATOR_DOT_SIZE_DP = 12`)
-via `resources.displayMetrics.density`, and passed in alongside `screenBoundsPx`.
+inside the class. It is instead a `footprintPx: () -> IndicatorFootprint` constructor parameter
+(`IndicatorFootprint(sizePx: IntSize, topInsetPx: Int)`), supplied alongside `screenBoundsPx` and
+re-evaluated on every jump rather than fixed at construction time — `FakeSleepActivity`'s
+`computeIndicatorFootprintPx()` derives it from the current `slots.value` (column/row count from
+slot count, `highImportance`'s 1.5x scale, and the count badge's corner overhang from
+`CountBadgeSettings`/`multi-notification-stacking`'s `SlotIcon`), not a single fixed dot size.
+Fixed via GitHub issue #23 — a single fixed-size `slotGroupSizePx: Int` computed once at
+`onCreate()` under-counted the group's real footprint once multi-slot/high-importance/badge
+rendering shipped, letting jumps push part of the group off-screen.
 
 ## 4. Session Lifecycle Integration
 
