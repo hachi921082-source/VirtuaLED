@@ -45,12 +45,14 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import android.app.TimePickerDialog
 import com.virtualed.app.autostop.QuietHoursScheduler
+import com.virtualed.app.data.AppIconIndicatorSettings
 import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.CountBadgeSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.IndicatorColorSettings
+import com.virtualed.app.data.PremiumState
 import com.virtualed.app.data.QuietHoursSettings
 import com.virtualed.app.data.parseHexColorOrNull
 import com.virtualed.app.overlay.FakeSleepActivityHolder
@@ -196,6 +198,13 @@ fun MainSwitchScreen(
         countBadgeEnabled = CountBadgeSettings.getEnabled(context)
     }
 
+    // docs/plans/other/source-app-icon-indicator-mode/PLAN.md §7 — 通知元アプリ自身のアイコン
+    // 表示設定。初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (OFF) を仮表示する。
+    var appIconIndicatorEnabled by remember { mutableStateOf(AppIconIndicatorSettings.DEFAULT_ENABLED) }
+    LaunchedEffect(Unit) {
+        appIconIndicatorEnabled = AppIconIndicatorSettings.getEnabled(context)
+    }
+
     // docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §8 — クワイエットアワー設定。
     // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (無効/01:00-07:00) を仮表示する。
     var quietHoursWindow by remember { mutableStateOf(QuietHoursSettings.DEFAULT_WINDOW) }
@@ -260,6 +269,27 @@ fun MainSwitchScreen(
                         },
                         modifier = Modifier.padding(start = 8.dp),
                     )
+                }
+                // プレミアム未解放時はこの行自体を表示しない — 課金導線が未整備な現状、
+                // 無効表示のスイッチだけ見せても理由を説明できないため
+                // (docs/plans/other/source-app-icon-indicator-mode/PLAN.md §7)。
+                if (PremiumState.isPremiumUnlocked()) {
+                    Row(
+                        modifier = Modifier.padding(top = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(text = stringResource(R.string.settings_show_app_icon))
+                        Switch(
+                            checked = appIconIndicatorEnabled,
+                            onCheckedChange = { checked ->
+                                appIconIndicatorEnabled = checked
+                                coroutineScope.launch {
+                                    AppIconIndicatorSettings.setEnabled(context, checked)
+                                }
+                            },
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
                 }
                 Column(
                     modifier = Modifier.padding(top = 24.dp),
