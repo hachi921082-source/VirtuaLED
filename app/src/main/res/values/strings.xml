@@ -67,4 +67,7 @@
     <string name="category_settings_category_sns">SNS</string>
     <string name="category_settings_category_calendar">カレンダー</string>
     <string name="category_settings_category_other">その他</string>
+
+    <!-- docs/plans/other/multi-notification-stacking/PLAN.md §5 -->
+    <string name="settings_show_count_badge">通知件数バッジを表示する</string>
 </resources>
