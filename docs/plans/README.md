@@ -94,15 +94,14 @@ the `other/` tier in this order:
   and `MATCH_DEFAULT_ONLY` silently excluding real launcher apps like Rakuten Link from the
   picker) — see `docs/HANDOFF.md` §15 for the full writeup. `docs/QA.md` #20 records one related,
   deliberately-deferred request (per-category tint color) that surfaced during this testing.
-- [`source-app-icon-indicator-mode`](other/source-app-icon-indicator-mode/PLAN.md) — Implemented,
-  reviewed and approved by `reviewer-lite`, PR pending. New premium feature (freemium monetization
-  direction, `docs/DECISIONS.md` §22): shows the notifying app's own launcher icon instead of the
-  fixed category icon set, gated by a local `isPremiumUnlocked` flag (`PremiumState`) defaulting to
+- [`source-app-icon-indicator-mode`](other/source-app-icon-indicator-mode/PLAN.md) — Done
+  (implemented, reviewed, merged PR #19). New premium feature (freemium monetization direction,
+  `docs/DECISIONS.md` §22): shows the notifying app's own launcher icon instead of the fixed
+  category icon set, gated by a local `isPremiumUnlocked` flag (`PremiumState`) defaulting to
   unlocked ahead of real billing. Adds `packageName` to `IndicatorSlotUiState`; the OTHER overflow
   slot is structurally excluded from ever rendering an app icon. Per-category tint color
   (`docs/QA.md` #20) was considered as an alternative premium feature and deprioritized in favor of
-  this one. `docs/QA.md` #23 records a non-blocking toggle-live-refresh follow-up, same class as
-  #18/#21.
+  this one. The toggle's live-refresh gap (`docs/QA.md` #23) was fixed in PR #21 (see below).
 - [`burn-in-protection`](other/burn-in-protection/PLAN.md) — Done (implemented, reviewed, merged
   PR #11). Adds `BurnInProtector` and `FakeSleepIndicatorUiState.indicatorOffset`, gated on
   session-active/`OverlayUiState`/proximity-covered via a combined `recompute()`
@@ -158,7 +157,7 @@ the `other/` tier in this order:
 - [`phone-call-overlay-suppression`](other/phone-call-overlay-suppression/PLAN.md)
 - [`indicator-color-customization`](other/indicator-color-customization/PLAN.md) — Done
   (implemented, reviewed, merged PR #12; revised per
-  [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17), PR pending). Replaces
+  [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17), merged PR #20). Replaces
   `fake-sleep-overlay`'s hardcoded white default with `IndicatorColorSettings` (DataStore) + an
   inline palette picker in `MainSwitchScreen` (no separate settings screen — this app has no
   navigation component, same convention already used for the DND/battery settings). Live color
