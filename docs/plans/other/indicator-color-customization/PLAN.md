@@ -47,7 +47,7 @@ free-form HEX input (see §4 — removed).
 
 ## 4. HEX Input Validation (Removed)
 
-**Revision (2026-08-30), see `docs/DECISIONS.md` §23**: the HEX text field and the wider
+**Revision (2026-08-30), tracked as [issue #17](https://github.com/hachi921082-source/VirtuaLED/issues/17), see `docs/DECISIONS.md` §23**: the HEX text field and the wider
 (originally 8-swatch) preset palette described in earlier versions of this plan are removed.
 Rationale: once color no longer needs to vary per icon (`docs/DECISIONS.md` §22 chose
 source-app-icon display over per-category color), a single shared indicator color doesn't need
