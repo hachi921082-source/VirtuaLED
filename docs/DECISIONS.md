@@ -584,7 +584,7 @@ separate session doing PLAN implementation — recorded here so the implementati
 it up without re-litigating the decision.
 
 **Direction**: distribute as a low-price freemium app (a rough ¥100–200 figure was mentioned, not
-finalized — see `docs/QA.md` #21) rather than pure donationware (§11's donationware framing is
+finalized — see `docs/QA.md` #22) rather than pure donationware (§11's donationware framing is
 superseded by this; the device-scope limitation itself is unaffected). Two candidate premium
 features were discussed:
 - Per-category indicator color (extending `indicator-color-customization`, PR #12) — see
@@ -608,7 +608,7 @@ from an empty placeholder item to a concretely working feature. When real billin
 only the source that writes `isPremiumUnlocked` changes (from a hardcoded default to a verified
 purchase state) — the rendering/UI code built now does not need to change.
 
-**Explicitly not decided by this session** (see `docs/QA.md` #21 for the open-question framing):
+**Explicitly not decided by this session** (see `docs/QA.md` #22 for the open-question framing):
 - The real gating mechanism once billing is actually wired up (Google Play Billing Library purchase
   state, a simpler one-time unlock code, or something else) — deliberately deferred by the
   `isPremiumUnlocked` seam above.
