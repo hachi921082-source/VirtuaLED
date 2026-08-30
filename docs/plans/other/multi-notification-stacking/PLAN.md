@@ -193,3 +193,21 @@ by `docs/plans/other/importance-based-sizing/PLAN.md` §6 for blink/size.
   value shared across the whole group (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7's
   synchronized-blink decision), so once any slot is high-importance, every currently-shown slot
   blinks together, not just the matching one.
+
+## Implementation Deviation Notes
+
+- **§4**: `IndicatorGroup` keeps its pre-existing signature (individual `MutableState<T>` parameters —
+  `offsetState`, `tintColorState`, `slotsState`, `blinkIntervalMsState`), not the single
+  `uiState: FakeSleepIndicatorUiState` parameter this plan's sketch used. That call-site convention
+  predates this plan (`docs/plans/mvp/fake-sleep-overlay/PLAN.md` §7's `FakeSleepContent`) and this
+  plan does not change it. `quadrantOffset()` is implemented exactly as sketched, as a private
+  `Modifier` extension in `FakeSleepActivity.kt`.
+- **§6**: no standalone `updateIndicatorSlots()` function was added. `IndicatorSlotBuilder.build()` is
+  called directly from `FakeSleepSessionController.recomputeIndicatorState()` (the same existing
+  recompute function `importance-based-sizing`/`category-icons-and-assets` already write into), rather
+  than through an intermediate wrapper — consistent with how that function already inlines both of
+  those features' logic rather than delegating to separate per-feature update functions.
+- **§5**: the count badge is a small red circle (top-end corner of the slot, `Text` in white) rather
+  than a specific visual spec — `docs/detailed-spec.md` §9 does not mandate exact badge styling, only
+  that it exists and defaults off; concrete look is an implementation-time judgment call, same as this
+  project's other cosmetic PLAN.md sketches (e.g. `indicator-color-customization`'s preset palette).

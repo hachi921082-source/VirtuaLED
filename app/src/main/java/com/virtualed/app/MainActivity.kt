@@ -47,6 +47,7 @@ import android.app.TimePickerDialog
 import com.virtualed.app.autostop.QuietHoursScheduler
 import com.virtualed.app.data.BatteryThresholdSettings
 import com.virtualed.app.data.BlinkSettings
+import com.virtualed.app.data.CountBadgeSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.IndicatorColorSettings
@@ -188,6 +189,13 @@ fun MainSwitchScreen(
         blinkIntervalMs = BlinkSettings.getIntervalMs(context)
     }
 
+    // docs/plans/other/multi-notification-stacking/PLAN.md §5 — 通知件数バッジ表示設定。
+    // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (OFF) を仮表示する。
+    var countBadgeEnabled by remember { mutableStateOf(CountBadgeSettings.DEFAULT_ENABLED) }
+    LaunchedEffect(Unit) {
+        countBadgeEnabled = CountBadgeSettings.getEnabled(context)
+    }
+
     // docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §8 — クワイエットアワー設定。
     // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (無効/01:00-07:00) を仮表示する。
     var quietHoursWindow by remember { mutableStateOf(QuietHoursSettings.DEFAULT_WINDOW) }
@@ -232,6 +240,22 @@ fun MainSwitchScreen(
                             showDuringDnd = checked
                             coroutineScope.launch {
                                 DndSettings.setHideDuringDnd(context, hide = !checked)
+                            }
+                        },
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+                Row(
+                    modifier = Modifier.padding(top = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(text = stringResource(R.string.settings_show_count_badge))
+                    Switch(
+                        checked = countBadgeEnabled,
+                        onCheckedChange = { checked ->
+                            countBadgeEnabled = checked
+                            coroutineScope.launch {
+                                CountBadgeSettings.setEnabled(context, checked)
                             }
                         },
                         modifier = Modifier.padding(start = 8.dp),
