@@ -115,8 +115,9 @@ class FakeSleepActivity : ComponentActivity() {
             },
             // dp→px 変換はここ (Compose 外・非 Composable なコンテキスト) で行う — BurnInProtector
             // 自体は Density を持たないプレーンクラスのため (docs/plans/other/burn-in-protection/
-            // PLAN.md §3 からの実装上の乖離、詳細は同 PLAN.md 参照)。
-            slotGroupSizePx = (INDICATOR_DOT_SIZE_DP * resources.displayMetrics.density).roundToInt(),
+            // PLAN.md §3 からの実装上の乖離、詳細は同 PLAN.md 参照)。都度呼び出すことで、スロット数/
+            // 高重要度/バッジ表示が変化した直後のジャンプにも現在の実サイズが反映される (issue #23)。
+            footprintPx = { computeIndicatorFootprintPx() },
         )
         // Activity インスタンスとセッションは 1:1 (PeekInteractionController と同様) —
         // startSession() 自体はこの Activity 生成前に呼ばれ、その時点では burnInProtector が
@@ -154,6 +155,37 @@ class FakeSleepActivity : ComponentActivity() {
         // まだ存在しないため no-op に終わっている (docs/plans/other/importance-based-sizing/
         // PLAN.md §6、burn-in-protection PLAN.md §4 と同様の乖離)。
         sessionController.recomputeIndicatorStateNow()
+    }
+
+    /**
+     * BurnInProtector のジャンプ先計算に渡す、現時点のスロットグループの実描画バウンディング
+     * ボックス。IndicatorGroup/SlotIcon の実際のレイアウトロジック (quadrantOffset・
+     * highImportance の 1.5x スケール・件数バッジの角はみ出し) と食い違わないよう、固定の単一
+     * アイコンサイズではなく現在の slots.value から都度算出する (GitHub issue #23 —
+     * 旧実装は INDICATOR_DOT_SIZE_DP 固定のみでこれらを反映しておらず、複数スロット表示時や
+     * 高重要度スケール時、バッジ表示時に実際の描画がバウンディングボックスをはみ出し得た)。
+     */
+    private fun computeIndicatorFootprintPx(): IndicatorFootprint {
+        val slots = indicatorUiState.slots.value
+        val density = resources.displayMetrics.density
+        // quadrantOffset(index) は index%2==1 で列2へ、index<2 以外 (2,3) で行2へ配置する
+        // (このファイル下部の quadrantOffset 参照)。
+        val columnCount = if (slots.size >= 2) 2 else 1
+        val rowCount = if (slots.size >= 3) 2 else 1
+        val maxIconSizeDp = slots.maxOfOrNull { slot ->
+            if (slot.highImportance) INDICATOR_DOT_SIZE_DP * 1.5f else INDICATOR_DOT_SIZE_DP.toFloat()
+        } ?: INDICATOR_DOT_SIZE_DP.toFloat()
+        // 件数バッジは右上に半径分はみ出す (SlotIcon)。右方向ははみ出す列が右端列のみのため幅に、
+        // 上方向ははみ出す行が上段行のみのため別途 topInset に加える (下方向・左方向のはみ出しは
+        // 発生しない)。
+        val badgeShown = CountBadgeSettings.enabledCached && slots.any { it.count > 1 }
+        val badgeOverhangDp = if (badgeShown) COUNT_BADGE_SIZE_DP / 2f else 0f
+        val widthDp = (columnCount - 1) * QUADRANT_GAP_DP + maxIconSizeDp + badgeOverhangDp
+        val heightDp = (rowCount - 1) * QUADRANT_GAP_DP + maxIconSizeDp
+        return IndicatorFootprint(
+            sizePx = IntSize((widthDp * density).roundToInt(), (heightDp * density).roundToInt()),
+            topInsetPx = (badgeOverhangDp * density).roundToInt(),
+        )
     }
 
     /** ドットからプレビューテキストへ、コンテンツ view を切り替える (同一 Activity インスタンス内)。 */
