@@ -12,7 +12,6 @@ import com.virtualed.app.R
 import com.virtualed.app.autostop.ProximityMonitor
 import com.virtualed.app.category.CategoryMapper
 import com.virtualed.app.category.DefaultCategoryMapper
-import com.virtualed.app.category.IndicatorCategory
 import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.DndState
@@ -27,10 +26,10 @@ import com.virtualed.app.importance.ImportanceResolver
  * docs/plans/mvp/fake-sleep-overlay/PLAN.md §2, §4, §5, §6 を実装。
  *
  * MVP スコープ: 画面オフ検出時のゲーティング判定・full-screen-intent 通知の投稿/取消・
- * 処理用の短時間 WakeLock のみ。色カスタマイズ・焼き付き防止の再配置・タップ/ピーク操作・
- * 複数通知の視覚的スタッキングは対象外 (他 PLAN が担当、§7 参照)。重要度判定
- * (docs/plans/other/importance-based-sizing/) とカテゴリ解決
- * (docs/plans/other/category-icons-and-assets/) は recomputeIndicatorState() で担当する。
+ * 処理用の短時間 WakeLock のみ。色カスタマイズ・焼き付き防止の再配置・タップ/ピーク操作は
+ * 対象外 (他 PLAN が担当、§7 参照)。重要度判定 (docs/plans/other/importance-based-sizing/)・
+ * カテゴリ解決 (docs/plans/other/category-icons-and-assets/)・複数通知の視覚的スタッキング
+ * (docs/plans/other/multi-notification-stacking/) は recomputeIndicatorState() で担当する。
  */
 class FakeSleepSessionController(
     private val context: Context,
@@ -129,30 +128,20 @@ class FakeSleepSessionController(
     // docs/plans/other/category-icons-and-assets/PLAN.md §5)。
     fun recomputeIndicatorStateNow() = recomputeIndicatorState()
 
-    // 保留通知のいずれかが登録キーワードにマッチするかの重要度判定と、表示すべきカテゴリの
-    // 解決を1回のパスでまとめて行い、結果を FakeSleepActivityHolder.indicatorUiState
-    // (存在すれば) へ書き込む。indicatorUiState がまだ存在しない場合 (FakeSleepActivity 未起動)
-    // は no-op — 実際の初回評価は recomputeIndicatorStateNow() 経由で
-    // FakeSleepActivity.onCreate() が行う。
+    // 保留通知一覧全体の重要度判定 (点滅間隔用、グループ全体で単一値 — PLAN.md §7 の
+    // 「点滅はスロット単位ではなくグループ単位」参照) と、アプリ単位のスロット構築
+    // (IndicatorSlotBuilder — カテゴリ解決・件数集約・スロット単位の重要度・4件超のオーバー
+    // フロー集約を1回のパスでまとめて担う) の両方を行い、結果を
+    // FakeSleepActivityHolder.indicatorUiState (存在すれば) へ書き込む。indicatorUiState が
+    // まだ存在しない場合 (FakeSleepActivity 未起動) は no-op — 実際の初回評価は
+    // recomputeIndicatorStateNow() 経由で FakeSleepActivity.onCreate() が行う。
     private fun recomputeIndicatorState() {
         val uiState = FakeSleepActivityHolder.indicatorUiState ?: return
         val snapshot = pendingRepo.snapshot()
-        val highImportance = ImportanceResolver.isHighImportance(snapshot) { pkg ->
-            KeywordRegistry.keywordsCache[pkg] ?: emptyList()
-        }
+        val keywordsByApp = { pkg: String -> KeywordRegistry.keywordsCache[pkg] ?: emptyList() }
+        val highImportance = ImportanceResolver.isHighImportance(snapshot, keywordsByApp)
         uiState.blinkIntervalMs.value = if (highImportance) BlinkSettings.intervalMsCached else null
-        // 表示するカテゴリは「最後に投稿された保留通知」のものを採用する (複数保留通知時の
-        // 集約ルール — 単一インジケーター MVP に対する簡略化、
-        // docs/plans/other/category-icons-and-assets/PLAN.md §5)。保留通知が1件も無い場合は
-        // 通常この関数がセッション非アクティブ時には呼ばれないため起こらないはずだが、
-        // 念のため OTHER にフォールバックしてクラッシュを避ける。
-        val category = snapshot.maxByOrNull { it.postTime }?.let { categoryMapper.resolve(it.packageName) }
-            ?: IndicatorCategory.OTHER
-        // 集約ルール (PLAN.md §4): 単一スロットの MVP では常にインデックス0のスロットへ書き込む。
-        // multi-notification-stacking 実装時にスロット単位の判定へ置き換わる (同 PLAN.md §6)。
-        uiState.slots.value = uiState.slots.value.mapIndexed { index, slot ->
-            if (index == 0) slot.copy(highImportance = highImportance, category = category) else slot
-        }
+        uiState.slots.value = IndicatorSlotBuilder.build(snapshot, categoryMapper, keywordsByApp)
     }
 
     private fun withScreenOffProcessingGuard(block: () -> Unit) {
