@@ -27,6 +27,9 @@
 19. Why the MVP Build Order Was Corrected From `fake-sleep-overlay`-First to `notification-detection-dot-indicator`/`foreground-service-setup`-First
 20. Why the `other/`-Tier Visual Extension Surface Is a Separate State-Holder Class With Synchronized Blink and Combined Gating
 21. Why App-to-Category Mapping Is User-Assigned, Not Auto-Inferred
+22. Freemium Monetization Direction: Source-App Icon Display as the First Premium Feature, Gated by
+    a Local Pre-Billing Flag
+23. Indicator Color Palette Reduced to 5 Presets, HEX Input Removed
 
 ## 1. Revival Background
 
@@ -152,6 +155,11 @@ does not require restructuring the settings screen. Whether to ever actually imp
 features remains an explicitly open future decision, not a commitment made by adding this
 placeholder.
 
+**Update (2026-08-30)**: that "open future decision" was made — see §22. The empty placeholder
+described above is superseded by a concretely working premium feature (source-app icon display,
+`docs/detailed-spec.md` §20) gated by a local flag rather than real billing (§21); real Billing
+Library integration itself remains deferred, unchanged from this section's original decision.
+
 ## 8. Design Philosophy: Simple but Properly Cover Necessary Features
 
 Governing principle for this project, stated by the user during the old-APK feature audit:
@@ -228,6 +236,10 @@ This device-scope limitation reinforces the donationware distribution model unde
 compatibility guarantee is made beyond the two owned test devices — consistent with the existing
 personal-use/limited-testing distribution scope (§5) rather than a paid app implying broader
 supported-device commitments.
+
+**Update (2026-08-30)**: the donationware framing above is superseded by §22's low-price freemium
+direction. The underlying reasoning (no compatibility guarantee beyond the two owned test devices)
+still holds regardless of distribution/pricing model, and is unaffected by this change.
 
 ## 12. Why Deep-Link Tap-to-Open Is Cut From Scope
 
@@ -564,3 +576,77 @@ This also keeps a consistent pattern with `importance-based-sizing`'s `KeywordSe
 (per-app settings, an installed-app picker via `PackageManager`, write-through persistence, no
 navigation library) — `category-icons-and-assets` reuses that same UI shape rather than
 introducing a new one.
+
+## 22. Freemium Monetization Direction: Source-App Icon Display as the First Premium Feature, Gated by a Local Pre-Billing Flag
+
+Discussed directly with the user (2026-08-30), in a session running consultation-only alongside a
+separate session doing PLAN implementation — recorded here so the implementation session can pick
+it up without re-litigating the decision.
+
+**Direction**: distribute as a low-price freemium app (a rough ¥100–200 figure was mentioned, not
+finalized — see `docs/QA.md` #21) rather than pure donationware (§11's donationware framing is
+superseded by this; the device-scope limitation itself is unaffected). Two candidate premium
+features were discussed:
+- Per-category indicator color (extending `indicator-color-customization`, PR #12) — see
+  `docs/QA.md` #20.
+- Displaying the notification-source app's own launcher icon as the indicator (via
+  `PackageManager.getApplicationIcon(packageName)`, using the `packageName` already available from
+  `NotificationListenerService`), instead of the fixed five-category icon set.
+
+The user chose to build **only the source-app-icon display** for now, judging it more valuable to
+users than per-category color for the same implementation effort — per-category color is
+deprioritized, not implemented, left as a candidate in `docs/QA.md` #20.
+
+**Decision**: implement source-app-icon display now as a fully working feature, gated by one local
+`isPremiumUnlocked` boolean (DataStore-backed), independent of any real purchase-verification
+mechanism. Default value: **unlocked (`true`)** — the user's explicit choice over building a
+locked-by-default paywall UI now, so the feature is fully exercisable (including by the
+developer's own on-device testing) before a real billing mechanism exists.
+
+This extends §7's already-established pattern (reserve a UI/mechanism seam, defer real billing)
+from an empty placeholder item to a concretely working feature. When real billing is added later,
+only the source that writes `isPremiumUnlocked` changes (from a hardcoded default to a verified
+purchase state) — the rendering/UI code built now does not need to change.
+
+**Explicitly not decided by this session** (see `docs/QA.md` #21 for the open-question framing):
+- The real gating mechanism once billing is actually wired up (Google Play Billing Library purchase
+  state, a simpler one-time unlock code, or something else) — deliberately deferred by the
+  `isPremiumUnlocked` seam above.
+- The exact price point.
+- Whether real billing requires first pursuing the Google Play distribution-model transition §5
+  already deferred (Play Billing needs at least a Play Console internal-testing-track listing; a
+  pure sideload distribution cannot host real purchases). §5 remains the operative decision on
+  distribution timing — this section does not reopen or accelerate it.
+- Whether Play Console's restricted-permission review overhead for
+  `BIND_NOTIFICATION_LISTENER_SERVICE` (already anticipated in §5) will be a meaningful hurdle once
+  the app is actually submitted — flagged as worth budgeting time for, not yet investigated.
+
+## 23. Indicator Color Palette Reduced to 5 Presets, HEX Input Removed
+
+Discussed directly with the user (2026-08-30), immediately following §22. Once §22 chose
+source-app-icon display over per-category color as the premium feature (`docs/QA.md` #20 stays
+deprioritized), the user pointed out that the original `indicator-color-customization` UI (merged
+PR #12: 8 preset swatches + a free-form HEX text field) over-provisions choice for what is now
+confirmed to remain a single shared color value, not a per-icon one — there is no longer a reason
+to offer 8+ colors when the color still only needs to look reasonably distinct against a black
+background.
+
+A second, concrete reason reinforced the same direction: a wider swatch row (or a HEX field next to
+it) risks needing wrap/scroll on some screens, which is not hypothetical for this project — the
+`category-icons-and-assets` live-device bug hunt already hit exactly this failure mode for a
+comparable row of 5 Japanese-labeled category chips (`docs/HANDOFF.md` §15, item 3: the chip row
+overflowed the screen width and made the trailing chip unreachable until fixed with
+`horizontalScroll`). Keeping the color-picker row narrow avoids reintroducing that class of bug and
+keeps this settings screen visually consistent with the rest of the app.
+
+**Decision**: reduce the indicator color picker to exactly 5 preset swatches; remove the HEX input
+field entirely. No free-form color entry. `docs/detailed-spec.md` §19 and
+`docs/plans/other/indicator-color-customization/PLAN.md` §3/§4 updated accordingly.
+
+This is a revision to an already-shipped, merged feature (PR #12), not new-feature planning — see
+`docs/plans/other/indicator-color-customization/PLAN.md` §4 for the specific code-level changes the
+implementing session needs to make (`ColorPickerSection` in `MainActivity.kt`, and removing
+`parseHexColorOrNull`'s UI call site). No data migration is needed: the persisted color is a plain
+ARGB int regardless of how it was originally set, so a value a user previously entered via HEX
+simply continues to render correctly — it just won't show as a highlighted preset in the reduced
+picker, which is cosmetic only.
