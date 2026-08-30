@@ -106,6 +106,29 @@ and contradictions before writing the MVP feature plans).
     that a fresh process clears — still not conclusively isolated, but "kill and relaunch the app"
     is now a confirmed reliable workaround either way.
 
+    **Wi-Fi adb repro attempt (2026-08-30)**, following up on this item's own "needs a repeat with
+    adb over Wi-Fi (no USB cable in the loop)" ask above: paired and connected to arrows We2 Plus
+    (`M06`) over Wi-Fi (`adb pair`/`adb connect`, no USB cable at any point), then ran repeated
+    screen-off/screen-on cycles with a real pending notification and the feature already running,
+    capturing logcat throughout. One full cycle was inspected in detail: the screen's own inactivity
+    timeout put the device into `WAKEFULNESS_DOZING` (`PowerManagerService: Dozing...`, confirmed via
+    `KeyguardTransitionRepository`'s `LOCKSCREEN → DOZING` transition) roughly 10 seconds after the
+    lock screen appeared — and from that Dozing state, the full-screen-intent notification
+    successfully woke the device (`Waking up power group from Dozing ... reason=WAKE_REASON_APPLICATION,
+    details=com.android.systemui:full_screen_intent`) and `FakeSleepActivity` launched and displayed
+    correctly, ~390ms after Dozing began. This cycle repeated multiple times over the session with no
+    failure observed (per the user's live narration matching the captured logcat).
+
+    **Interpretation**: this is evidence *against* "merely entering `WAKEFULNESS_DOZING` blocks the
+    full-screen-intent launch" as a sufficient explanation on its own — in this test, Dozing and a
+    successful wake-and-launch coexisted every time. Combined with zero reproductions across an
+    entire no-USB-cable session, this is consistent with (though doesn't conclusively prove) the
+    original USB-cable-interference hypothesis from this item's first entry above. Still not
+    reproduced under Wi-Fi adb; the battery-only (no adb attached at all) test this item also asks
+    for remains undone. Not a blocker — no code change made or needed based on this round; the
+    existing "force-stop and relaunch the app" workaround from the second reproduction above still
+    stands as the fallback if this recurs.
+
 19. `auto-stop-conditions`/quiet-hours (`docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md`,
     merged PR #14): the "alarm fires for real while a fake-sleep session is actively displayed →
     session force-ends" path was verified by code review only (mirrors the already-proven
