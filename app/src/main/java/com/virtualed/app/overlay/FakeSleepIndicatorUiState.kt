@@ -59,4 +59,11 @@ data class IndicatorSlotUiState(
     val count: Int = 1,
     val highImportance: Boolean = false,
     val category: IndicatorCategory? = null,
+    // このスロットに対応する単一アプリの packageName。null は「単一の代表アプリが存在しない」
+    // ことを意味し、5件目以降を集約した OTHER オーバーフロースロットのみが null のまま
+    // ビルドされる (実アプリ単位のスロットは必ず非 null)。source-app-icon-indicator-mode の
+    // アプリアイコン描画可否は category ではなくこのフィールドで判定する — 未割り当てで
+    // category が OTHER に解決される単一アプリも正しくアイコン対象に含めるため
+    // (docs/plans/other/source-app-icon-indicator-mode/PLAN.md §2/§5)。
+    val packageName: String? = null,
 )
