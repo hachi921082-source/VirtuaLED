@@ -89,79 +89,97 @@ fun KeywordSettingsScreen(onBack: () -> Unit) {
                 text = stringResource(R.string.keyword_settings_pick_app_label),
                 modifier = Modifier.padding(top = 12.dp),
             )
+            // 2026-08-30: 選んだアプリの直下にキーワード編集を展開する形へ変更 (以前はリストの外に
+            // 別枠で表示しており、選択したアプリとの視覚的なつながりが分かりにくいとの指摘 —
+            // CategorySettingsScreen と同じ理由・同じアコーディオン方式)。
             LazyColumn(modifier = Modifier.weight(1f, fill = false).padding(top = 4.dp)) {
                 items(installedApps) { app ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { selectedPackage = app.packageName }
-                            .padding(vertical = 8.dp),
-                    ) {
-                        Text(text = app.label)
+                    val isExpanded = selectedPackage == app.packageName
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedPackage = if (isExpanded) null else app.packageName
+                                }
+                                .padding(vertical = 8.dp),
+                        ) {
+                            Text(text = app.label)
+                        }
+                        if (isExpanded) {
+                            KeywordEditor(
+                                keywords = keywords,
+                                newKeyword = newKeyword,
+                                onNewKeywordChanged = { newKeyword = it },
+                                onAddKeyword = {
+                                    val keyword = newKeyword.trim()
+                                    if (keyword.isNotEmpty()) {
+                                        val updated = keywords + keyword
+                                        keywords = updated
+                                        newKeyword = ""
+                                        coroutineScope.launch {
+                                            KeywordRegistry.setKeywords(context, app.packageName, updated)
+                                        }
+                                    }
+                                },
+                                onRemoveKeyword = { keyword ->
+                                    val updated = keywords - keyword
+                                    keywords = updated
+                                    coroutineScope.launch {
+                                        KeywordRegistry.setKeywords(context, app.packageName, updated)
+                                    }
+                                },
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
 
-            val selected = selectedPackage
-            if (selected == null) {
-                Text(
-                    text = stringResource(R.string.keyword_settings_no_app_selected),
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-            } else {
-                Text(
-                    text = selected,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    OutlinedTextField(
-                        value = newKeyword,
-                        onValueChange = { newKeyword = it },
-                        label = { Text(text = stringResource(R.string.keyword_settings_add_keyword_hint)) },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Button(
-                        onClick = {
-                            val keyword = newKeyword.trim()
-                            if (keyword.isNotEmpty()) {
-                                val updated = keywords + keyword
-                                keywords = updated
-                                newKeyword = ""
-                                coroutineScope.launch { KeywordRegistry.setKeywords(context, selected, updated) }
-                            }
-                        },
-                        modifier = Modifier.padding(start = 8.dp),
+/**
+ * 展開されたアプリ行の直下に表示するキーワード入力欄+登録済みキーワード一覧
+ * (2026-08-30 追加 — 以前は KeywordSettingsScreen 本体に直接書かれていた)。
+ */
+@Composable
+private fun KeywordEditor(
+    keywords: List<String>,
+    newKeyword: String,
+    onNewKeywordChanged: (String) -> Unit,
+    onAddKeyword: () -> Unit,
+    onRemoveKeyword: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            OutlinedTextField(
+                value = newKeyword,
+                onValueChange = onNewKeywordChanged,
+                label = { Text(text = stringResource(R.string.keyword_settings_add_keyword_hint)) },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            Button(onClick = onAddKeyword, modifier = Modifier.padding(start = 8.dp)) {
+                Text(text = stringResource(R.string.keyword_settings_add_button))
+            }
+        }
+        if (keywords.isEmpty()) {
+            Text(
+                text = stringResource(R.string.keyword_settings_empty_keywords),
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        } else {
+            Column(modifier = Modifier.padding(top = 8.dp)) {
+                keywords.forEach { keyword ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(text = stringResource(R.string.keyword_settings_add_button))
-                    }
-                }
-                if (keywords.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.keyword_settings_empty_keywords),
-                        modifier = Modifier.padding(top = 12.dp),
-                    )
-                } else {
-                    Column(modifier = Modifier.padding(top = 12.dp)) {
-                        keywords.forEach { keyword ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Text(text = keyword)
-                                TextButton(
-                                    onClick = {
-                                        val updated = keywords - keyword
-                                        keywords = updated
-                                        coroutineScope.launch {
-                                            KeywordRegistry.setKeywords(context, selected, updated)
-                                        }
-                                    },
-                                ) {
-                                    Text(text = stringResource(R.string.keyword_settings_remove_button))
-                                }
-                            }
+                        Text(text = keyword)
+                        TextButton(onClick = { onRemoveKeyword(keyword) }) {
+                            Text(text = stringResource(R.string.keyword_settings_remove_button))
                         }
                     }
                 }
