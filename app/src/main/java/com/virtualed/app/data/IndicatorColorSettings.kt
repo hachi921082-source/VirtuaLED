@@ -27,13 +27,7 @@ object IndicatorColorSettings {
         context.indicatorColorSettingsDataStore.edit { prefs -> prefs[COLOR_ARGB_KEY] = colorArgb }
     }
 }
-
-/**
- * HEX 文字列 (#RRGGBB / RRGGBB / #AARRGGBB / AARRGGBB) を ARGB Int へ変換する。
- * 解析に失敗した場合は null を返す — 呼び出し側は永続化を行わず、入力エラーを表示する
- * (docs/plans/other/indicator-color-customization/PLAN.md §4)。
- */
-fun parseHexColorOrNull(input: String): Int? =
-    runCatching {
-        android.graphics.Color.parseColor(if (input.startsWith("#")) input else "#$input")
-    }.getOrNull()
+// parseHexColorOrNull は HEX 自由入力 UI の廃止に伴い削除済み
+// (docs/plans/other/indicator-color-customization/PLAN.md §4、docs/DECISIONS.md §23)。
+// getColorArgb() は入力経路によらず永続化済み ARGB Int をそのまま返すため、
+// 過去に HEX 入力で保存された値の再検証は不要 — 呼び出し側での再パースも行っていない。
