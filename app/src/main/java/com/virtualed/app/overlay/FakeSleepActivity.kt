@@ -27,18 +27,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.lifecycleScope
 import com.virtualed.app.R
 import com.virtualed.app.category.IndicatorCategory
+import com.virtualed.app.data.AppIconIndicatorSettings
 import com.virtualed.app.data.CountBadgeSettings
 import com.virtualed.app.data.IndicatorColorSettings
 import com.virtualed.app.data.PendingNotificationsRepository
+import com.virtualed.app.data.PremiumState
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -289,9 +295,33 @@ private fun Modifier.quadrantOffset(index: Int): Modifier = this.offset(
 )
 
 /**
- * インジケータースロット1件分の描画。slot.category が非 null ならカテゴリアイコンを、null なら
- * 従来どおりプレーンな円 (ドット) を描画する — 円描画は未割り当てが実装される前の MVP 既定表示で
- * あり、フォールバックとして残す (docs/plans/other/category-icons-and-assets/PLAN.md §5)。
+ * 通知元アプリ自身のランチャーアイコンを解決する (source-app-icon-indicator-mode)。
+ * packageName をキーに remember() するため、点滅トグルなど packageName が変わらない再構成では
+ * PackageManager へ問い合わせ直さない (docs/plans/other/source-app-icon-indicator-mode/PLAN.md §6)。
+ * アプリアンインストール後の NameNotFoundException 等、解決失敗は runCatching で吸収して null を
+ * 返す — 呼び出し側 (SlotIcon) がカテゴリアイコン/ドットへフォールバックする。
+ */
+@Composable
+private fun rememberAppIconBitmap(packageName: String?): ImageBitmap? {
+    val context = LocalContext.current
+    return remember(packageName) {
+        if (packageName.isNullOrEmpty()) {
+            null
+        } else {
+            runCatching { context.packageManager.getApplicationIcon(packageName) }
+                .getOrNull()
+                ?.toBitmap()
+                ?.asImageBitmap()
+        }
+    }
+}
+
+/**
+ * インジケータースロット1件分の描画。有効化条件を満たす場合はまず通知元アプリ自身のアイコンを
+ * 試み (source-app-icon-indicator-mode、docs/detailed-spec.md §20)、解決できなければ
+ * slot.category が非 null ならカテゴリアイコンを、null なら従来どおりプレーンな円 (ドット) を
+ * 描画する — 円描画は未割り当てが実装される前の MVP 既定表示であり、フォールバックとして残す
+ * (docs/plans/other/category-icons-and-assets/PLAN.md §5)。
  * 高重要度スロットは 1.5x スケールで描画する (docs/plans/other/importance-based-sizing/PLAN.md §6)。
  * CountBadgeSettings が有効かつ count > 1 の場合のみ、右上コーナーに件数バッジを重ねる
  * (デフォルト OFF、docs/plans/other/multi-notification-stacking/PLAN.md §5)。
@@ -300,8 +330,22 @@ private fun Modifier.quadrantOffset(index: Int): Modifier = this.offset(
 private fun SlotIcon(slot: IndicatorSlotUiState, tintColor: Color, modifier: Modifier) {
     val dotSizeDp = if (slot.highImportance) INDICATOR_DOT_SIZE_DP * 1.5f else INDICATOR_DOT_SIZE_DP.toFloat()
     val category = slot.category
+    // プレミアム未解放時は永続化済みの設定値に関わらず常に強制 OFF
+    // (docs/detailed-spec.md §20 "Forced off when isPremiumUnlocked is false")。
+    // slot.packageName が null (OTHER オーバーフロースロット) の場合は remember() 内で
+    // 早期に null を返すため、この分岐自体が常にフォールバックへ流れる (docs/DECISIONS.md §20)。
+    val appIconEnabled = PremiumState.isPremiumUnlocked() && AppIconIndicatorSettings.enabledCached
+    val appIconBitmap = if (appIconEnabled) rememberAppIconBitmap(slot.packageName) else null
     Box(modifier = modifier) {
-        if (category != null) {
+        if (appIconBitmap != null) {
+            // 実アプリアイコンは多色画像のため tintColor を適用しない
+            // (docs/detailed-spec.md §19 に追記された注記、§20)。
+            Image(
+                bitmap = appIconBitmap,
+                contentDescription = null,
+                modifier = Modifier.size(dotSizeDp.dp),
+            )
+        } else if (category != null) {
             // Image + ColorFilter.tint() は View 側の ImageView.setColorFilter() の
             // Compose 版相当 (PLAN.md §2/§6 が指定する着色経路)。androidx.compose.material3.Icon
             // は tint 引数しか持たず内部変換が暗黙的なため、ここでは明示的に Image + colorFilter

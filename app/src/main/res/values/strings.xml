@@ -70,4 +70,7 @@
 
     <!-- docs/plans/other/multi-notification-stacking/PLAN.md §5 -->
     <string name="settings_show_count_badge">通知件数バッジを表示する</string>
+
+    <!-- docs/plans/other/source-app-icon-indicator-mode/PLAN.md §7 -->
+    <string name="settings_show_app_icon">通知元アプリ自身のアイコンを表示する</string>
 </resources>
