@@ -102,14 +102,16 @@ class VirtuaLedForegroundService : Service() {
         // docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §3 — しきい値の読み込みが非同期な
         // ため、DataStore からの読み込み完了後に登録する。ACTION_BATTERY_CHANGED は sticky broadcast
         // なので、登録タイミングが多少遅れても登録時点の現在値は取得できる。
+        // refreshCache() を待ってから登録することで、既存の「初回は永続化済みの実値が判明してから
+        // 登録する」というコールドスタート挙動を維持しつつ、以後は BatteryLevelReceiver が
+        // thresholdPercentCached を毎回読み直すため設定変更が即座に反映される (docs/QA.md #18)。
         serviceScope.launch {
-            val threshold = BatteryThresholdSettings.getThresholdPercent(applicationContext)
+            BatteryThresholdSettings.refreshCache(applicationContext)
             val receiver = BatteryLevelReceiver(
-                thresholdPercent = threshold,
-                onBelowThreshold = {
+                onBelowThreshold = { thresholdPercent ->
                     Toast.makeText(
                         applicationContext,
-                        getString(R.string.auto_stop_battery_toast, threshold),
+                        getString(R.string.auto_stop_battery_toast, thresholdPercent),
                         Toast.LENGTH_SHORT,
                     ).show()
                     // アプリ内スイッチ OFF 経路と同等の完全停止 (PLAN-2-battery.md §4)。

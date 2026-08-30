@@ -30,6 +30,8 @@
 22. Freemium Monetization Direction: Source-App Icon Display as the First Premium Feature, Gated by
     a Local Pre-Billing Flag
 23. Indicator Color Palette Reduced to 5 Presets, HEX Input Removed
+24. Two Standard Fixes for "Settings Toggle Doesn't Live-Refresh Mid-Session": Compose `State` for
+    Composable Reads, Live-Cache-Read-at-Use-Time for Non-Compose Callbacks
 
 ## 1. Revival Background
 
@@ -650,3 +652,51 @@ implementing session needs to make (`ColorPickerSection` in `MainActivity.kt`, a
 ARGB int regardless of how it was originally set, so a value a user previously entered via HEX
 simply continues to render correctly — it just won't show as a highlighted preset in the reduced
 picker, which is cosmetic only.
+
+## 24. Two Standard Fixes for "Settings Toggle Doesn't Live-Refresh Mid-Session": Compose `State` for Composable Reads, Live-Cache-Read-at-Use-Time for Non-Compose Callbacks
+
+By the time `docs/QA.md` had accumulated three separate instances of the same shape of bug —
+`docs/QA.md` #18 (`BatteryLevelReceiver`), #21 (`CountBadgeSettings` in `SlotIcon`), and #23
+(`AppIconIndicatorSettings` in `SlotIcon`) — each found independently during a different feature's
+review and each left open as "non-blocking, worth a generic fix later" (per `docs/HANDOFF.md` §19's
+own recommendation), it was worth fixing the pattern once rather than continuing to patch each new
+feature's version of it individually as it recurred.
+
+Reading the three cases together showed they are actually **two distinct root causes**, not one,
+and need two distinct fixes:
+
+**Case A — a `@Composable` reads a plain Kotlin property (#21, #23).** `SlotIcon` reads
+`CountBadgeSettings.enabledCached` / `AppIconIndicatorSettings.enabledCached` during composition.
+Both were already correctly cached and updated immediately on save (a `@Volatile var`, mirroring
+`DndSettings`'s already-proven pattern) — the cached value itself was never stale. The actual bug
+is that Compose has no way to know a plain property changed, so it never recomposes `SlotIcon` when
+the value is updated from elsewhere (e.g. a background coroutine after a settings-screen save).
+**Fix**: back the cache with Compose `mutableStateOf` instead of `@Volatile var` —
+`var enabledCached: Boolean by mutableStateOf(DEFAULT_ENABLED) private set`. This is a drop-in
+replacement with no call-site changes: a read from inside a composable is now tracked by Compose's
+snapshot system (so `SlotIcon` recomposes automatically), while a read/write from ordinary
+non-Compose code behaves exactly as before. This is the fix to prefer whenever the only readers of
+a live-cached boolean/settings value are Compose composables.
+
+**Case B — a callback reads a value captured once, not the current value (#18).**
+`BatteryLevelReceiver` received its threshold as a constructor parameter, captured once when the
+receiver was registered in `VirtuaLedForegroundService.onCreate()`, and never re-read afterward —
+this isn't a Compose problem at all (a `BroadcastReceiver` callback has no composition to track),
+it's a plain stale-capture bug. **Fix**: give the underlying settings object (`BatteryThresholdSettings`)
+the same `DndSettings`-style live cache other settings already use (`@Volatile var
+thresholdPercentCached`, updated in `setThresholdPercent()`, populated via a new `refreshCache()`
+awaited at service startup — preserving the existing cold-start ordering guarantee, not introducing
+a new race), and have the receiver read the cache fresh inside `onReceive()` on every broadcast
+instead of holding a captured value. This is the fix to prefer whenever the reader is a callback
+(a `BroadcastReceiver`, a listener, anything outside Compose) rather than a composable.
+
+**Deliberately left alone**: `PremiumState` was not converted to Case A's pattern despite being
+read in the same `SlotIcon` expression as #23 — there is currently no live in-session way to toggle
+premium status (no billing UI exists yet), so there is no live-refresh bug to fix there yet. Apply
+Case A's fix to it if and when a future feature adds a way to change `PremiumState` while a session
+is active.
+
+**Guidance for future features**: when adding a new cached settings value, decide up front which
+case applies based on *where it's read*, not by copying whichever sibling settings object happens
+to be nearest in the file — a value read only by composables wants Case A; a value read by a
+non-Compose callback wants Case B (or both, if it's read from both kinds of place).
