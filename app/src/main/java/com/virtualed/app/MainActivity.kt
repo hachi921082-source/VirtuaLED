@@ -55,6 +55,7 @@ import com.virtualed.app.data.parseHexColorOrNull
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.service.VirtuaLedForegroundService
+import com.virtualed.app.ui.CategorySettingsScreen
 import com.virtualed.app.ui.KeywordSettingsScreen
 import com.virtualed.app.ui.OnboardingScreen
 import com.virtualed.app.ui.theme.VirtuaLedTheme
@@ -90,6 +91,10 @@ fun VirtuaLedApp() {
     // 使わず、OnboardingScreen ↔ MainSwitchScreen の切り替えと同じ方針。
     var showKeywordSettings by remember { mutableStateOf(false) }
 
+    // docs/plans/other/category-icons-and-assets/PLAN.md §7 — 上と同じ boolean トグル方式で
+    // MainSwitchScreen ↔ CategorySettingsScreen を切り替える。
+    var showCategorySettings by remember { mutableStateOf(false) }
+
     // POST_NOTIFICATIONS は通常のランタイム許可ダイアログで足りるため、通知リスナー onboarding
     // とは独立に、起動時に一度だけ要求する (PLAN のスコープ注記参照)。
     RequestPostNotificationsPermission()
@@ -98,8 +103,13 @@ fun VirtuaLedApp() {
         OnboardingScreen(onAllGranted = { listenerGranted = true })
     } else if (showKeywordSettings) {
         KeywordSettingsScreen(onBack = { showKeywordSettings = false })
+    } else if (showCategorySettings) {
+        CategorySettingsScreen(onBack = { showCategorySettings = false })
     } else {
-        MainSwitchScreen(onOpenKeywordSettings = { showKeywordSettings = true })
+        MainSwitchScreen(
+            onOpenKeywordSettings = { showKeywordSettings = true },
+            onOpenCategorySettings = { showCategorySettings = true },
+        )
     }
 }
 
@@ -127,10 +137,17 @@ private fun RequestPostNotificationsPermission() {
 // permission-onboarding のゲートを通過した後にのみ到達する
 // (docs/plans/mvp/onoff-notification-toggle/PLAN.md で本格的な UI に置き換え予定)。
 @Composable
-fun MainSwitchScreen(onOpenKeywordSettings: () -> Unit = {}) {
+fun MainSwitchScreen(
+    onOpenKeywordSettings: () -> Unit = {},
+    onOpenCategorySettings: () -> Unit = {},
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var enabled by remember { mutableStateOf(false) }
+    // 固定値 false ではなく、実際に VirtuaLedForegroundService が動作中かを起動時に問い合わせる —
+    // キーワード設定/カテゴリ設定画面へ遷移して戻ると MainSwitchScreen は composition から
+    // 一旦外れて再度組み込まれるため、固定値 false のままだと FGS が実際には動作継続していても
+    // スイッチの見た目だけ OFF に戻ってしまう (実機テストで発見)。
+    var enabled by remember { mutableStateOf(isForegroundServiceRunning(context)) }
 
     // docs/plans/other/dnd-handling/PLAN.md §4 — UI 表示は内部フラグ hide_during_dnd の反転表示。
     // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (= 表示しない) を仮表示する。
@@ -271,6 +288,12 @@ fun MainSwitchScreen(onOpenKeywordSettings: () -> Unit = {}) {
                     modifier = Modifier.padding(top = 24.dp),
                 ) {
                     Text(text = stringResource(R.string.settings_keyword_settings_button))
+                }
+                Button(
+                    onClick = onOpenCategorySettings,
+                    modifier = Modifier.padding(top = 12.dp),
+                ) {
+                    Text(text = stringResource(R.string.settings_category_settings_button))
                 }
             }
         }
@@ -418,6 +441,16 @@ private fun ColorPickerSection(selectedColorArgb: Int, onColorChanged: (Int) -> 
 // ON/OFF 経路は非対称 (docs/plans/mvp/onoff-notification-toggle/PLAN.md §5) —
 // ON は FeatureEnabledState を明示的に true へ戻してから起動する (通知アクションで OFF に
 // された状態のまま残っている可能性があるため)。OFF は ACTION_STOP → stopSelf() で完全停止する。
+// ActivityManager.getRunningServices() は API 26 以降サードパーティアプリからは他アプリの
+// サービスを見れなくなったが、呼び出し元自身のアプリのサービスは引き続き取得できる
+// (公式ドキュメント記載の後方互換用途) — MainSwitchScreen の enabled 初期値をこれで問い合わせる。
+private fun isForegroundServiceRunning(context: Context): Boolean {
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+    @Suppress("DEPRECATION")
+    return activityManager.getRunningServices(Int.MAX_VALUE)
+        .any { it.service.className == VirtuaLedForegroundService::class.java.name }
+}
+
 private fun setForegroundServiceEnabled(context: Context, enabled: Boolean) {
     val intent = Intent(context, VirtuaLedForegroundService::class.java)
     if (enabled) {

@@ -21,6 +21,22 @@
     -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!--
+      docs/plans/other/importance-based-sizing/PLAN.md §3、
+      docs/plans/other/category-icons-and-assets/PLAN.md §4。InstalledAppPicker.kt の
+      queryIntentActivities(ACTION_MAIN/CATEGORY_LAUNCHER) がキーワード登録/カテゴリ設定
+      画面のアプリ選択一覧に使う問い合わせ。Android 11 (API 30) 以降のパッケージ可視性制限により、
+      この <queries> 宣言が無いと LINE/Gmail 等の一般アプリが結果に含まれず、一部の
+      システムアプリしか一覧に出ない (実機テストで発見)。QUERY_ALL_PACKAGES (Google Play
+      制限付き権限) は使わず、この用途に必要な最小限の可視性のみを宣言する。
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
