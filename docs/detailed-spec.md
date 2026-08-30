@@ -384,7 +384,7 @@ the gating mechanism.
   without a paywall UI or purchase flow blocking that work.
 - Consumers: currently only §20 checks this flag. Any future premium feature should read the same
   `PremiumState`, not introduce a second flag.
-- Explicitly out of scope here (deferred — see `docs/DECISIONS.md` §22 and `docs/QA.md` #21):
+- Explicitly out of scope here (deferred — see `docs/DECISIONS.md` §22 and `docs/QA.md` #22):
   Google Play Billing Library integration, purchase verification, restore-purchase flow, and
   pricing/tiering mechanics. When that work happens, only the code that writes `PremiumState`'s
   persisted value changes (from a hardcoded default to a verified purchase result) — no consumer
