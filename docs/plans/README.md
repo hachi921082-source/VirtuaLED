@@ -109,7 +109,11 @@ the `other/` tier in this order:
   startSession()`'s `onSessionActiveChanged(true)` call is dead in every path (real activation
   happens in `FakeSleepActivity.onCreate()`, documented as a deviation in that plan's file); the
   indicator sits at `(0,0)` for the first ~4s of each session/rotation before the first jump
-  (matches the plan's own pseudocode, not a defect).
+  (matches the plan's own pseudocode, not a defect). **[Issue #23](https://github.com/hachi921082-source/VirtuaLED/issues/23)**
+  (found live on-device, 2026-08-30, not yet fixed): the reposition bounds are computed from a
+  single hardcoded icon size (`slotGroupSizePx`), which doesn't account for the actual rendered
+  footprint when multiple slots are shown (2x2 grid), a high-importance icon is scaled 1.5x, or the
+  count badge hangs off a corner — any of these can let part of the indicator land off-screen.
 - [`importance-based-sizing`](other/importance-based-sizing/PLAN.md) — Done (implemented,
   reviewed, merged PR #13). Adds `KeywordRegistry`/`BlinkSettings` (DataStore, synchronous caches
   mirroring `DndSettings`'s pattern), `ImportanceResolver` (NFKC/case-normalized substring match),
