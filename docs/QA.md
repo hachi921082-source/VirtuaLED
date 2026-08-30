@@ -106,19 +106,6 @@ and contradictions before writing the MVP feature plans).
     that a fresh process clears — still not conclusively isolated, but "kill and relaunch the app"
     is now a confirmed reliable workaround either way.
 
-17. `VirtuaLedForegroundService.onCreate()` launches `DndSettings.refreshCache()` fire-and-forget
-    (not awaited) before `onStartCommand()`/`ScreenStateReceiver` registration proceeds. If a
-    screen-off event fires before that DataStore read completes, `FakeSleepSessionController
-    .onScreenOff()` uses the still-default `hideDuringDndCached = true` for that one event. This
-    only produces a visible discrepancy if the user has set the toggle to its non-default value
-    (`hide_during_dnd = false`, "always show during DND") — in that narrow window, DND-active
-    sessions would be incorrectly suppressed once. Found by `reviewer-lite` during the
-    `dnd-handling` review (`docs/plans/other/dnd-handling/PLAN.md`); judged low-severity enough not
-    to block merge (default value already matches the unrefreshed cache; DataStore reads are
-    typically near-instant). Left open as a possible follow-up (e.g. have `onScreenOff()` guard
-    against a screen-off arriving before the first `refreshCache()` completes) rather than fixed
-    immediately.
-
 19. `auto-stop-conditions`/quiet-hours (`docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md`,
     merged PR #14): the "alarm fires for real while a fake-sleep session is actively displayed →
     session force-ends" path was verified by code review only (mirrors the already-proven
@@ -236,3 +223,18 @@ and contradictions before writing the MVP feature plans).
     same fix as #21, applied to `AppIconIndicatorSettings.enabledCached`. `PremiumState` was
     deliberately left untouched by this fix — there is currently no live in-session way to toggle
     premium status (no billing UI exists yet), so there was no live-refresh bug to fix there.
+
+17. ~~`VirtuaLedForegroundService.onCreate()` launches `DndSettings.refreshCache()` fire-and-forget
+    (not awaited) before `onStartCommand()`/`ScreenStateReceiver` registration proceeds. If a
+    screen-off event fires before that DataStore read completes, `FakeSleepSessionController
+    .onScreenOff()` uses the still-default `hideDuringDndCached = true` for that one event.~~
+    Resolved (2026-08-30): `ScreenStateReceiver` registration (`onStartCommand()`) now happens
+    inside the same coroutine as `DndSettings.refreshCache()`, after it completes, instead of the
+    refresh running as a separate fire-and-forget launch in `onCreate()`. Since the receiver can't
+    receive `ACTION_SCREEN_OFF` until it's actually registered, this structurally eliminates the
+    race rather than just narrowing its window — a screen-off event can no longer arrive before
+    the DND cache is populated. A boolean guard (`screenStateReceiverRegistrationStarted`) replaces
+    the old `screenStateReceiver == null` check to prevent double-registration across repeated
+    `onStartCommand()` calls, since the field itself is now only assigned after registration
+    actually completes (mirroring the same async-registration-then-field-assignment shape already
+    used for `batteryLevelReceiver`, `docs/QA.md` #18's now-resolved fix).
