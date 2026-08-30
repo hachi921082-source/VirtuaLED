@@ -47,7 +47,9 @@
     <string name="settings_quiet_hours_end_button">終了: %1$02d:%2$02d</string>
 
     <!-- docs/plans/other/indicator-color-customization/PLAN.md §3 (HEX入力欄は §4 で廃止) -->
-    <string name="settings_indicator_color_label">インジケーターの色</string>
+    <!-- 2026-08-30: 「インジケーターの色」から「アイコンの色」へ変更 (ユーザー提案画像の
+         指定通り — 独自判断で戻さないこと)。 -->
+    <string name="settings_indicator_color_label">アイコンの色</string>
 
     <!-- docs/plans/other/importance-based-sizing/PLAN.md §5
          2026-08-30 にスライダーから −/+ ステッパーへ変更したのに伴い、値を含まない見出しと
@@ -62,7 +64,6 @@
     <string name="keyword_settings_title">キーワード設定</string>
     <string name="keyword_settings_back_button">戻る</string>
     <string name="keyword_settings_pick_app_label">アプリを選択</string>
-    <string name="keyword_settings_no_app_selected">アプリを選択してください</string>
     <string name="keyword_settings_add_keyword_hint">キーワードを入力</string>
     <string name="keyword_settings_add_button">追加</string>
     <string name="keyword_settings_remove_button">削除</string>
@@ -78,8 +79,6 @@
     <string name="category_settings_title">カテゴリ設定</string>
     <string name="category_settings_back_button">戻る</string>
     <string name="category_settings_pick_app_label">アプリを選択</string>
-    <string name="category_settings_no_app_selected">アプリを選択してください</string>
-    <string name="category_settings_category_label">カテゴリ</string>
     <string name="category_settings_category_unset">未設定</string>
     <string name="category_settings_category_phone">電話</string>
     <string name="category_settings_category_mail">メール</string>
