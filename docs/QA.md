@@ -166,15 +166,6 @@ and contradictions before writing the MVP feature plans).
     currently planned; left here as a candidate for later, not picked up by §22's premium-feature
     work.
 
-22. Should this app's freemium tier (`docs/DECISIONS.md` §22) gate on a real Google Play Billing
-    purchase, or something simpler for a personal/low-price app (e.g. a one-time unlock code, or
-    even trusting a settings toggle)? Not decided — §22 deliberately defers this by building the
-    premium feature (source-app-icon indicator display) behind a local `isPremiumUnlocked` flag
-    that defaults to unlocked, so the real gating mechanism can be decided later without touching
-    the feature code itself. Also open: exact price point (the user mentioned ¥100–200 as a rough
-    figure, not finalized) and whether moving to real billing requires the Play Console
-    distribution-model transition `docs/DECISIONS.md` §5 already deferred.
-
 21. `multi-notification-stacking` (PR #16)'s `CountBadgeSettings.enabledCached` toggle doesn't take
     effect live while `FakeSleepActivity` is already showing — same class of gap as #18 above.
     `SlotIcon` reads `CountBadgeSettings.enabledCached` as a plain Kotlin property at composition
@@ -184,10 +175,16 @@ and contradictions before writing the MVP feature plans).
     We2 Plus / `M06`): the badge appeared only after a power-button screen off→on cycle, not
     immediately on toggling the switch. Not fixed — same non-blocking precedent as #18 (a design
     choice about whether every such settings toggle needs a live-refresh path, better decided
-    together rather than per-feature). **Note**: this repo currently has two open PRs that may both
-    want to claim "#21" (PR #16 here, and PR #18's own freemium-consultation "#21" on
-    `docs/freemium-source-app-icon-planning`) — whichever merges second should renumber to avoid a
-    duplicate.
+    together rather than per-feature).
+
+22. Should this app's freemium tier (`docs/DECISIONS.md` §22) gate on a real Google Play Billing
+    purchase, or something simpler for a personal/low-price app (e.g. a one-time unlock code, or
+    even trusting a settings toggle)? Not decided — §22 deliberately defers this by building the
+    premium feature (source-app-icon indicator display) behind a local `isPremiumUnlocked` flag
+    that defaults to unlocked, so the real gating mechanism can be decided later without touching
+    the feature code itself. Also open: exact price point (the user mentioned ¥100–200 as a rough
+    figure, not finalized) and whether moving to real billing requires the Play Console
+    distribution-model transition `docs/DECISIONS.md` §5 already deferred.
 
 ### Resolved (continued)
 
