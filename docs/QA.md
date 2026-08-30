@@ -186,6 +186,14 @@ and contradictions before writing the MVP feature plans).
     figure, not finalized) and whether moving to real billing requires the Play Console
     distribution-model transition `docs/DECISIONS.md` §5 already deferred.
 
+23. `source-app-icon-indicator-mode`'s "show app's own icon" toggle
+    (`AppIconIndicatorSettings.enabledCached`) doesn't take effect live while `FakeSleepActivity` is
+    already showing — same class of gap as #18/#21 above. `SlotIcon` reads it as a plain Kotlin
+    property at composition time rather than a Compose `State`, so toggling the setting mid-session
+    only becomes visible at the next unrelated recomposition. Not fixed — same non-blocking
+    precedent as #18/#21 (a design choice about whether every such settings toggle needs a
+    live-refresh path, better decided together rather than per-feature).
+
 ### Resolved (continued)
 
 13. ~~How does an installed third-party app get mapped to one of the five indicator categories
