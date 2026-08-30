@@ -63,6 +63,11 @@ class VirtuaLedForegroundService : Service() {
     // onStartCommand() で1回だけ登録、onDestroy() で解除する。
     private var screenStateReceiver: ScreenStateReceiver? = null
 
+    // onStartCommand() の複数回呼び出しに対する二重登録ガード。screenStateReceiver フィールド自体は
+    // 実際に registerReceiver() が完了してから代入する (docs/QA.md #17 の修正 — 下記参照) ため、
+    // ガード判定にはこちらの別フラグを使う。
+    private var screenStateReceiverRegistrationStarted = false
+
     // docs/plans/other/auto-stop-conditions/PLAN-2-battery.md §3 — ACTION_BATTERY_CHANGED 用の動的登録
     // receiver。onCreate() で1回だけ登録、onDestroy() で解除する。
     private var batteryLevelReceiver: BatteryLevelReceiver? = null
@@ -75,10 +80,6 @@ class VirtuaLedForegroundService : Service() {
         super.onCreate()
         createNotificationChannel()
         sessionController = FakeSleepSessionController(this, PendingNotificationsRepository)
-
-        // docs/plans/other/dnd-handling/PLAN.md §5 — onScreenOff() の同期ゲーティング判定に使う
-        // キャッシュ値を、サービス起動時に一度だけ DataStore から読み込んでおく。
-        serviceScope.launch { DndSettings.refreshCache(applicationContext) }
 
         // docs/plans/other/importance-based-sizing/PLAN.md §6 — ImportanceResolver の同期評価に
         // 使うキャッシュ値 (登録キーワード全件・点滅間隔) を、同じ理由でサービス起動時に読み込む。
@@ -158,20 +159,29 @@ class VirtuaLedForegroundService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-        if (screenStateReceiver == null) {
+        if (!screenStateReceiverRegistrationStarted) {
             // START_STICKY による再配信/onStartCommand の複数回呼び出しに対する二重登録ガード。
-            val receiver = ScreenStateReceiver(
-                onScreenOff = { handleScreenOff() },
-                onUnlock = { handleUnlock() },
-            )
-            registerReceiver(
-                receiver,
-                IntentFilter().apply {
-                    addAction(Intent.ACTION_SCREEN_OFF)
-                    addAction(Intent.ACTION_USER_PRESENT)
-                },
-            )
-            screenStateReceiver = receiver
+            // フラグは先に確定させるが、実際の registerReceiver() は DndSettings.refreshCache() の
+            // 完了を待ってから行う — sessionController.onScreenOff() の同期ゲーティング判定が
+            // まだデフォルト値の hideDuringDndCached を見てしまう起動直後のレースを防ぐため
+            // (docs/QA.md #17)。receiver がまだ登録されていない間は画面オフイベント自体を
+            // 受け取れないので、この一度きりの遅延は安全側に倒れる。
+            screenStateReceiverRegistrationStarted = true
+            serviceScope.launch {
+                DndSettings.refreshCache(applicationContext)
+                val receiver = ScreenStateReceiver(
+                    onScreenOff = { handleScreenOff() },
+                    onUnlock = { handleUnlock() },
+                )
+                registerReceiver(
+                    receiver,
+                    IntentFilter().apply {
+                        addAction(Intent.ACTION_SCREEN_OFF)
+                        addAction(Intent.ACTION_USER_PRESENT)
+                    },
+                )
+                screenStateReceiver = receiver
+            }
         }
         return START_STICKY
     }
