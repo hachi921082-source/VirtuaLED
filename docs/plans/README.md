@@ -134,7 +134,17 @@ the `other/` tier in this order:
     windows). Confirmed fixed via a live before/after re-test.
 - [`dnd-handling`](other/dnd-handling/PLAN.md) — Done (implemented, reviewed, merged PR #8). See
   `docs/QA.md` #17 for a minor non-blocking follow-up found during review.
-- [`multi-notification-stacking`](other/multi-notification-stacking/PLAN.md)
+- [`multi-notification-stacking`](other/multi-notification-stacking/PLAN.md) — Done (implemented,
+  reviewed, merged PR #16). Adds `IndicatorSlotBuilder` (per-app grouping, up to 4 slots + a summed
+  OTHER overflow slot beyond that, per-app not aggregate `highImportance`) and a fixed 2x2 grid
+  render in `FakeSleepActivity`'s `IndicatorGroup`/`SlotIcon`; a single pending notification still
+  renders identically to the pre-existing MVP path. Adds `CountBadgeSettings` (DataStore, default
+  off) for an optional per-slot notification-count badge. Live-device testing (arrows We2 Plus /
+  `M06`, real Outlook mail + Rakuten Link missed-call notifications) confirmed the grid and count
+  badge both work, and found two follow-up items: the indicator icon needed enlarging from 24dp to
+  32dp with the badge offset outward from the corner (fixed before merge, since the badge was
+  otherwise covering most of a smaller icon), and `docs/QA.md` #21 records that the count-badge
+  toggle doesn't live-refresh mid-session (same non-blocking class of gap as #18).
 - [`localization-additional-languages`](other/localization-additional-languages/PLAN.md)
 - [`phone-call-overlay-suppression`](other/phone-call-overlay-suppression/PLAN.md)
 - [`indicator-color-customization`](other/indicator-color-customization/PLAN.md) — Done
