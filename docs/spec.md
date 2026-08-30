@@ -73,7 +73,10 @@ before being renamed to "VirtuaLED" — see `docs/DECISIONS.md` §1a.
   target — see `docs/DECISIONS.md` §5.
 - Notification action button: the Foreground Service's persistent notification includes an
   ON/OFF toggle action, so the feature can be quickly enabled/disabled without opening the app
-- Settings screen reserves an empty Donate/Pro placeholder item, not functionally wired
+- Premium feature (freemium, low-price): source-app icon indicator mode — shows the notifying
+  app's own launcher icon instead of the fixed category icon set. Gated by a local
+  `isPremiumUnlocked` flag, currently defaulting to unlocked ahead of real billing — see
+  `docs/DECISIONS.md` §22 and `docs/detailed-spec.md` §20/§21
 
 ## 5. Non-Goals
 
@@ -84,7 +87,9 @@ before being renamed to "VirtuaLED" — see `docs/DECISIONS.md` §1a.
 - No home-screen widget (v1)
 - No Tasker/Locale plugin support
 - No weather display
-- No billing/IAP logic (v1) — see the Donate/Pro placeholder item above under Core Features
+- No real Billing/IAP backend integration (v1) — the premium feature above is built and unlocked
+  by a local flag defaulting to `true`, not by a working purchase flow; see
+  `docs/DECISIONS.md` §22
 
 ## 6. Open Items
 
