@@ -34,6 +34,10 @@ object IndicatorSlotBuilder {
                     keywords.isNotEmpty() &&
                         keywords.any { matchesKeyword("${info.title.orEmpty()} ${info.text.orEmpty()}", it) }
                 },
+                // このグループは常にちょうど1アプリ分 (groupBy のキー自体) —
+                // source-app-icon-indicator-mode のアイコン解決対象になる
+                // (docs/plans/other/source-app-icon-indicator-mode/PLAN.md §5)。
+                packageName = pkg,
             )
         }
         if (perApp.size <= MAX_SLOTS) return perApp
@@ -43,6 +47,10 @@ object IndicatorSlotBuilder {
             category = IndicatorCategory.OTHER,
             count = overflow.sumOf { it.count },
             highImportance = overflow.any { it.highImportance },
+            // packageName は意図的に指定しない (null のまま) — 2件以上のアプリを集約した
+            // オーバーフロースロットには単一の代表アプリが存在しないため、
+            // source-app-icon-indicator-mode は常にこのスロットをアプリアイコン描画から除外する
+            // (docs/plans/other/source-app-icon-indicator-mode/PLAN.md §5/§9)。
         )
     }
 }
