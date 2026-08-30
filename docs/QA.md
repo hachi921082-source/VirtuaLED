@@ -161,6 +161,20 @@ and contradictions before writing the MVP feature plans).
     and `FakeSleepIndicatorUiState.tintColor` (would need to become per-category, e.g. a
     `Map<IndicatorCategory, Color>` or five separate `MutableState`s instead of one shared value).
 
+21. `multi-notification-stacking` (PR #16)'s `CountBadgeSettings.enabledCached` toggle doesn't take
+    effect live while `FakeSleepActivity` is already showing — same class of gap as #18 above.
+    `SlotIcon` reads `CountBadgeSettings.enabledCached` as a plain Kotlin property at composition
+    time rather than a Compose `State`, so toggling the setting from `MainSwitchScreen` mid-session
+    only becomes visible at the next unrelated recomposition (e.g. a pending-notification change, or
+    ending/restarting the session via screen off→on) — confirmed via live on-device testing (arrows
+    We2 Plus / `M06`): the badge appeared only after a power-button screen off→on cycle, not
+    immediately on toggling the switch. Not fixed — same non-blocking precedent as #18 (a design
+    choice about whether every such settings toggle needs a live-refresh path, better decided
+    together rather than per-feature). **Note**: this repo currently has two open PRs that may both
+    want to claim "#21" (PR #16 here, and PR #18's own freemium-consultation "#21" on
+    `docs/freemium-source-app-icon-planning`) — whichever merges second should renumber to avoid a
+    duplicate.
+
 ### Resolved (continued)
 
 13. ~~How does an installed third-party app get mapped to one of the five indicator categories
