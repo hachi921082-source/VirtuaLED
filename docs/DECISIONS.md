@@ -294,6 +294,15 @@ were resolved along the way:
 
 ## 15. Why Blink Interval Is Kept User-Configurable (Unlike Burn-In Reposition Timing)
 
+**Removed**: live on-device use found the blink cue, combined with burn-in protection's periodic
+repositioning, felt disorienting rather than useful — the eye has to both re-locate the group after
+each jump and track a flashing state. High importance is now conveyed by the 1.5x size increase
+alone (`docs/detailed-spec.md` §5), which read as sufficiently noticeable on its own. Blinking and
+its interval setting were removed entirely (`BlinkSettings`, the `blinkIntervalMs` UI state field,
+and the settings-screen stepper) rather than just defaulted off, since no code path needed it once
+this decision was made. This section is kept for historical record of why blink was originally made
+configurable; that reasoning no longer applies since blink itself is gone.
+
 Unlike burn-in reposition's interval/style (§13, cut from scope — no individual-difference
 rationale exists there, just an arbitrary cosmetic choice nobody has a real stake in), the
 importance-sizing blink interval (`docs/detailed-spec.md` §5) directly determines whether the
