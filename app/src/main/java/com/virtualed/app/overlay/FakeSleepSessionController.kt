@@ -12,14 +12,12 @@ import com.virtualed.app.R
 import com.virtualed.app.autostop.ProximityMonitor
 import com.virtualed.app.category.CategoryMapper
 import com.virtualed.app.category.DefaultCategoryMapper
-import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.DndState
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.KeywordRegistry
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.data.QuietHoursState
-import com.virtualed.app.importance.ImportanceResolver
 
 /**
  * フェイクスリープセッションの状態機械。VirtuaLedForegroundService が1回だけ生成し保持する。
@@ -151,8 +149,6 @@ class FakeSleepSessionController(
         val uiState = FakeSleepActivityHolder.indicatorUiState ?: return
         val snapshot = pendingRepo.snapshot()
         val keywordsByApp = { pkg: String -> KeywordRegistry.keywordsCache[pkg] ?: emptyList() }
-        val highImportance = ImportanceResolver.isHighImportance(snapshot, keywordsByApp)
-        uiState.blinkIntervalMs.value = if (highImportance) BlinkSettings.intervalMsCached else null
         uiState.slots.value = IndicatorSlotBuilder.build(snapshot, categoryMapper, keywordsByApp)
     }
 
