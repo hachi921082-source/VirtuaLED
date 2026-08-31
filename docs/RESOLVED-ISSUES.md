@@ -14,3 +14,6 @@
 - **[#30](https://github.com/hachi921082-source/VirtuaLED/issues/30)** — A notification arriving
   while the screen is already off never triggers the fake-sleep session. `bug`. Fixed via
   [PR #31](https://github.com/hachi921082-source/VirtuaLED/pull/31).
+- **[#33](https://github.com/hachi921082-source/VirtuaLED/issues/33)** — Remove the high-importance
+  blink cue and its interval setting. `enhancement`. Fixed via
+  [PR #34](https://github.com/hachi921082-source/VirtuaLED/pull/34).
