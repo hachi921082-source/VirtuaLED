@@ -51,11 +51,6 @@
          指定通り — 独自判断で戻さないこと)。 -->
     <string name="settings_indicator_color_label">アイコンの色</string>
 
-    <!-- docs/plans/other/importance-based-sizing/PLAN.md §5
-         2026-08-30 にスライダーから −/+ ステッパーへ変更したのに伴い、値を含まない見出しと
-         値表示を別文字列に分割 (MainActivity.kt の BlinkIntervalStepper)。 -->
-    <string name="settings_blink_interval_title">高重要度時の点滅間隔</string>
-    <string name="settings_blink_interval_value">%1$dms</string>
     <!-- docs/plans/other/importance-based-sizing/PLAN.md §3
          MainSwitchScreen 側のラベル文言は 2026-08-30 に「キーワード設定」という単独ボタンから
          「重要キーワードの設定」+ 共通の「設定」ボタン (settings_row_button_label) の行形式へ変更。
