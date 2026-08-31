@@ -19,7 +19,6 @@ import com.virtualed.app.data.AppExclusionSettings
 import com.virtualed.app.data.SeenAppsHistory
 import com.virtualed.app.data.AppIconIndicatorSettings
 import com.virtualed.app.data.BatteryThresholdSettings
-import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.CategorySettings
 import com.virtualed.app.data.CountBadgeSettings
 import com.virtualed.app.data.DndSettings
@@ -84,9 +83,8 @@ class VirtuaLedForegroundService : Service() {
         sessionController = FakeSleepSessionController(this, PendingNotificationsRepository)
 
         // docs/plans/other/importance-based-sizing/PLAN.md §6 — ImportanceResolver の同期評価に
-        // 使うキャッシュ値 (登録キーワード全件・点滅間隔) を、同じ理由でサービス起動時に読み込む。
+        // 使うキャッシュ値 (登録キーワード全件) を、同じ理由でサービス起動時に読み込む。
         serviceScope.launch { KeywordRegistry.refreshCache(applicationContext) }
-        serviceScope.launch { BlinkSettings.refreshCache(applicationContext) }
 
         // docs/plans/other/category-icons-and-assets/PLAN.md §4 — CategoryMapper の同期評価に
         // 使うキャッシュ値 (アプリ別割り当てカテゴリ全件) を、同じ理由でサービス起動時に読み込む。
