@@ -14,8 +14,7 @@ import com.virtualed.app.category.IndicatorCategory
  * docs/plans/mvp/fake-sleep-overlay/PLAN.md §7)。
  *
  * 現時点では近接センサーによる一時非表示 (indicatorVisible)、焼き付き防止の再配置
- * (indicatorOffset)、インジケーター色 (tintColor)、重要度に基づくスロット一覧と点滅間隔
- * (slots/blinkIntervalMs) を持つ。
+ * (indicatorOffset)、インジケーター色 (tintColor)、重要度に基づくスロット一覧 (slots) を持つ。
  */
 class FakeSleepIndicatorUiState {
     // false の間はドット/プレビューいずれの描画も抑止する (近接センサー被覆時のみ)。
@@ -40,11 +39,6 @@ class FakeSleepIndicatorUiState {
     // アプリ単位のキーワードマッチ判定結果を同関数が書き込む
     // (docs/plans/other/importance-based-sizing/PLAN.md §6)。
     val slots: MutableState<List<IndicatorSlotUiState>> = mutableStateOf(listOf(IndicatorSlotUiState()))
-
-    // 高重要度時の点滅間隔 (ms)。null は「点滅なし」(通常時のデフォルト) を表す。ユーザー設定
-    // (BlinkSettings) の値を、いずれかのスロットが高重要度と判定されている間だけここへ書き込む
-    // (docs/plans/other/importance-based-sizing/PLAN.md §5/§6)。
-    val blinkIntervalMs: MutableState<Long?> = mutableStateOf(null)
 }
 
 /**
