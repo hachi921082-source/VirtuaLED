@@ -93,6 +93,15 @@ Fixed via GitHub issue #23 — a single fixed-size `slotGroupSizePx: Int` comput
 `onCreate()` under-counted the group's real footprint once multi-slot/high-importance/badge
 rendering shipped, letting jumps push part of the group off-screen.
 
+**Second fix (GitHub issue #32)**: #23 only fixed the bounds computed *at jump time*. A slot's
+`highImportance` (and therefore its footprint) can flip between two scheduled jumps — e.g. a new
+reply arrives matching a registered keyword — leaving the group at a position chosen for the
+*previous*, possibly smaller footprint for up to `REPOSITION_INTERVAL_MS` (4s) until the next jump.
+`BurnInProtector.onSlotsMayHaveChanged()`, called from
+`FakeSleepSessionController.recomputeIndicatorState()` whenever `slots.value` changes, re-clamps the
+*current* offset into the (possibly-changed) bounds immediately — a minimal correction, not a fresh
+random jump, so a slot's importance changing doesn't also cause a surprise reposition.
+
 ## 4. Session Lifecycle Integration
 
 `BurnInProtector` runs exactly when the indicator slot group is actually being drawn on screen —
