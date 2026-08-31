@@ -72,9 +72,21 @@ class FakeSleepSessionController(
         // 再評価する (docs/plans/other/importance-based-sizing/PLAN.md §6、
         // docs/plans/other/category-icons-and-assets/PLAN.md §5)。
         pendingRepo.setOnChangedListener { if (sessionActive) recomputeIndicatorState() }
+        // GitHub issue #30 — 画面が既にオフの状態 (セッション未開始) で新規通知が届いた場合、
+        // 次に画面がオン→オフし直されるまでインジケーターが一切表示されなかった問題への対応。
+        // 画面が現在オフなら、その場で tryStartSession() の同じゲーティング判定を通す。
+        // 画面が点灯中ならここでは何もしない — 通常どおり次の ACTION_SCREEN_OFF で処理される。
+        pendingRepo.setOnBecameNonEmptyListener {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!pm.isInteractive) tryStartSession()
+        }
     }
 
-    fun onScreenOff() {
+    fun onScreenOff() = tryStartSession()
+
+    // ACTION_SCREEN_OFF 発生時、および画面が既にオフの状態で新規通知が届いた場合 (issue #30) の
+    // 両方から呼ばれる、セッション開始可否のゲーティング判定。
+    private fun tryStartSession() {
         // feature OFF 中はゲーティングごと無効化する (docs/plans/mvp/onoff-notification-toggle/PLAN.md §2)。
         if (!FeatureEnabledState.isEnabled()) return
         // DND 中は隠す設定が有効かつ現在 DND 中ならゲーティングごと無効化する (docs/plans/other/dnd-handling/PLAN.md §5)。
