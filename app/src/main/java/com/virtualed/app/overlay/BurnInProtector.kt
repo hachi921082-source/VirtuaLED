@@ -58,6 +58,23 @@ class BurnInProtector(
         recompute()
     }
 
+    // GitHub issue #32 — a slot's highImportance (and therefore its 1.5x-or-not footprint) can
+    // change between two scheduled reposition jumps (e.g. a new reply matches a registered
+    // keyword). Without this, the group stays exactly where it was chosen for the *previous*,
+    // possibly smaller footprint until the next jump (up to REPOSITION_INTERVAL_MS later),
+    // during which the enlarged icon can extend past the screen edge. Called from
+    // FakeSleepSessionController.recomputeIndicatorState() whenever slots.value changes.
+    // Re-clamps the *current* position into the new bounds rather than picking a fresh random
+    // one — a minimal correction, not a surprise extra jump caused by unrelated content changes.
+    fun onSlotsMayHaveChanged() {
+        val bounds = computeBounds()
+        val current = indicatorUiState.indicatorOffset.value
+        indicatorUiState.indicatorOffset.value = IntOffset(
+            current.x.coerceIn(0, bounds.maxX),
+            current.y.coerceIn(bounds.minY, bounds.maxY),
+        )
+    }
+
     // 3条件を1箇所でまとめて評価する唯一のゲート (docs/DECISIONS.md §20)。
     private fun recompute() {
         val shouldRun = sessionActive && uiState == OverlayUiState.INDICATOR_SHOWN && !proximityCovered
@@ -83,19 +100,28 @@ class BurnInProtector(
     }
 
     private fun jumpToRandomOffset() {
-        val bounds = screenBoundsPx()
+        val bounds = computeBounds()
+        indicatorUiState.indicatorOffset.value = IntOffset(
+            Random.nextInt(0, bounds.maxX + 1),
+            Random.nextInt(bounds.minY, bounds.maxY + 1),
+        )
+    }
+
+    // screenBoundsPx/footprintPx はどちらも呼び出しの都度読み直す (キャッシュしない) — 回転/
+    // 構成変更、スロット数/高重要度/バッジ表示の変化に追従するため (issue #23)。
+    private fun computeBounds(): Bounds {
+        val screenBounds = screenBoundsPx()
         val footprint = footprintPx()
         // topInsetPx: 件数バッジは各アイコンの右上に半径分はみ出す (SlotIcon)。上段スロットの
         // バッジは group の上端よりさらに上へはみ出すため、y の下限を 0 からこの分だけ上げて
         // グループ自体をその分下げないと、バッジが画面上端の外側に出てしまう。
         val minY = footprint.topInsetPx
-        val maxX = (bounds.width - footprint.sizePx.width).coerceAtLeast(0)
-        val maxY = (bounds.height - footprint.sizePx.height).coerceAtLeast(minY)
-        indicatorUiState.indicatorOffset.value = IntOffset(
-            Random.nextInt(0, maxX + 1),
-            Random.nextInt(minY, maxY + 1),
-        )
+        val maxX = (screenBounds.width - footprint.sizePx.width).coerceAtLeast(0)
+        val maxY = (screenBounds.height - footprint.sizePx.height).coerceAtLeast(minY)
+        return Bounds(minY = minY, maxX = maxX, maxY = maxY)
     }
+
+    private data class Bounds(val minY: Int, val maxX: Int, val maxY: Int)
 }
 
 /**
