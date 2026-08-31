@@ -119,6 +119,14 @@ full-screen-intent notification (§5) → the OS launches `FakeSleepActivity` vi
 `PendingIntent`, without the Service itself starting any new component from the background (§17,
 `docs/plans/mvp/foreground-service-setup/PLAN.md`).
 
+**Implementation note (GitHub issue #30)**: the gating check shown above (`onScreenOff()` calling
+`startSession()` directly) was extracted into a private `tryStartSession()`, with `onScreenOff()`
+now a thin wrapper around it. `FakeSleepSessionController.init{}` also wires
+`PendingNotificationsRepository.setOnBecameNonEmptyListener { ... }` to the same `tryStartSession()`,
+guarded by `PowerManager.isInteractive() == false` — so a notification arriving while the screen is
+already off and no session is active starts a session immediately, instead of only reacting to the
+next `ACTION_SCREEN_OFF`. See `docs/DECISIONS.md` §16's addendum for the rationale.
+
 ## 4. WakeLock Discipline (§16)
 
 **Narrowed scope**: no session-long or periodically-renewed `WakeLock` — `FakeSleepActivity`'s

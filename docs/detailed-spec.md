@@ -28,8 +28,12 @@
 
 ## 1. Fake-Sleep Overlay Mechanism
 
-1. Detect `ACTION_SCREEN_OFF` broadcast (via a receiver dynamically registered inside the
-   already-running Foreground Service — see §17).
+1. Trigger point — either of:
+   - Detect `ACTION_SCREEN_OFF` broadcast (via a receiver dynamically registered inside the
+     already-running Foreground Service — see §17), or
+   - A new notification arrives while the screen is already off and no session is active yet
+     (checked via `PowerManager.isInteractive()`). See `docs/DECISIONS.md` §16 for why this second
+     trigger exists (GitHub issue #30).
 2. Check whether at least one unread notification is currently pending (see §12). If none, do
    nothing — the device sleeps normally, no interception at all. See `docs/DECISIONS.md` §16 for
    why this gating exists.
