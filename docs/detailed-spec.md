@@ -146,9 +146,9 @@ of how — or whether — per-app category assignment ends up being implemented.
   regular-expression support — plain substring match only, consistent with this project's
   simplicity-first philosophy (`docs/DECISIONS.md` §8).
 - Apps with zero registered keywords are always normal importance
-- High importance: indicator at 1.5x size, or blink at a user-configurable interval (default 1
-  second; e.g. 0.5-3s range, persisted setting) — see `docs/DECISIONS.md` §15
-- Normal importance: standard size, static (no blink)
+- High importance: indicator at 1.5x size. Blink was removed — see `docs/DECISIONS.md` §15
+  (superseded)
+- Normal importance: standard size
 
 ## 6. Power/Context Auto-Stop Conditions
 

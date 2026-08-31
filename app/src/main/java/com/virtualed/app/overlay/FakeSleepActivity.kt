@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,8 +46,6 @@ import com.virtualed.app.data.IndicatorColorSettings
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.data.PremiumState
 import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 // スロットグループのドットサイズ (dp)。焼き付き防止のバウンディングボックス計算 (px 換算) と
@@ -144,7 +141,6 @@ class FakeSleepActivity : ComponentActivity() {
                 indicatorOffsetState = indicatorUiState.indicatorOffset,
                 tintColorState = indicatorUiState.tintColor,
                 slotsState = indicatorUiState.slots,
-                blinkIntervalMsState = indicatorUiState.blinkIntervalMs,
                 onTap = { peekController.onTap() },
             )
         }
@@ -228,7 +224,6 @@ private fun FakeSleepContent(
     indicatorOffsetState: MutableState<IntOffset>,
     tintColorState: MutableState<Color>,
     slotsState: MutableState<List<IndicatorSlotUiState>>,
-    blinkIntervalMsState: MutableState<Long?>,
     onTap: () -> Unit,
 ) {
     val previewLines = previewLinesState.value
@@ -252,7 +247,6 @@ private fun FakeSleepContent(
                     offsetState = indicatorOffsetState,
                     tintColorState = tintColorState,
                     slotsState = slotsState,
-                    blinkIntervalMsState = blinkIntervalMsState,
                 )
             } else {
                 Column(
@@ -273,49 +267,27 @@ private fun FakeSleepContent(
  * 各象限へ配置する — スロットが1件のみなら quadrantOffset(0) は常にノーオペレーションのため、
  * 単一通知時の見た目は従来と完全に同一 (docs/plans/other/multi-notification-stacking/PLAN.md §4、
  * MAX_SLOTS==1 の縮退ケース)。色は tintColorState (ユーザー設定の永続化色、デフォルト白) から
- * 取る (docs/plans/other/indicator-color-customization/PLAN.md §5)。点滅は blinkIntervalMsState
- * が非 null の間、グループ全体で同期して行う — スロット単位ではない
- * (docs/plans/other/importance-based-sizing/PLAN.md §7)。高重要度・カテゴリアイコン/プレーンな円
- * フォールバック・件数バッジは SlotIcon に委ねる (§5/§6)。
+ * 取る (docs/plans/other/indicator-color-customization/PLAN.md §5)。高重要度・カテゴリアイコン/
+ * プレーンな円フォールバック・件数バッジは SlotIcon に委ねる (§5/§6)。点滅表示は廃止済み
+ * (ユーザー確認・実機調整、焼き付き防止の再配置との相性が悪いとの判断 — 高重要度は
+ * SlotIcon の 1.5x スケールのみで表現する)。
  */
 @Composable
 private fun IndicatorGroup(
     offsetState: MutableState<IntOffset>,
     tintColorState: MutableState<Color>,
     slotsState: MutableState<List<IndicatorSlotUiState>>,
-    blinkIntervalMsState: MutableState<Long?>,
 ) {
     val slots = slotsState.value
-    val blinkIntervalMs = blinkIntervalMsState.value
-
-    // ハードなオン/オフ切り替えのみ (フェード/補間は行わない — PLAN.md はそこまで要求していない)。
-    // blinkIntervalMs が変化するたびキーとして LaunchedEffect が再起動し、null になった場合は
-    // 即座に表示状態へ戻る (= 点滅しない、従来どおりの挙動)。
-    var blinkVisible by remember { mutableStateOf(true) }
-    LaunchedEffect(blinkIntervalMs) {
-        if (blinkIntervalMs == null) {
-            blinkVisible = true
-            return@LaunchedEffect
-        }
-        while (isActive) {
-            blinkVisible = true
-            delay(blinkIntervalMs / 2)
-            blinkVisible = false
-            delay(blinkIntervalMs / 2)
-        }
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
-        if (blinkVisible) {
-            slots.forEachIndexed { index, slot ->
-                SlotIcon(
-                    slot = slot,
-                    tintColor = tintColorState.value,
-                    modifier = Modifier
-                        .offset { offsetState.value }
-                        .quadrantOffset(index),
-                )
-            }
+        slots.forEachIndexed { index, slot ->
+            SlotIcon(
+                slot = slot,
+                tintColor = tintColorState.value,
+                modifier = Modifier
+                    .offset { offsetState.value }
+                    .quadrantOffset(index),
+            )
         }
     }
 }

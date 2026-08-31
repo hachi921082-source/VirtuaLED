@@ -2,6 +2,12 @@
 
 Covers: `docs/detailed-spec.md` §5 (Importance-Based Sizing).
 
+**Blink removed**: every reference to blinking/`BlinkSettings`/`blinkIntervalMs` in this document
+(originally §5) describes a feature that has since been removed entirely — see
+`docs/DECISIONS.md` §15 (superseded) for why. High importance is now conveyed by the 1.5x size
+increase alone. Kept here unedited as historical record of the original design; do not treat §5 or
+any blink-related pseudocode below as current.
+
 **Scope note**: this plan covers per-app keyword registration, the normalized substring match
 rule, the blink-interval setting, and applying size/blink to the overlay indicator. It does not
 cover per-icon importance in a multi-notification layout

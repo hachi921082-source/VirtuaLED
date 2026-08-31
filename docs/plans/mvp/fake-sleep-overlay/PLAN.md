@@ -299,9 +299,9 @@ the Activity if it is currently resumed.
   }
   ```
 
-  It owns five `MutableState` properties, each one the render target one or more `other/`-tier
-  plans write to instead of reaching into a `WindowManager`/`View` layer (this architecture has
-  none):
+  It owns four `MutableState` properties (originally five — `blinkIntervalMs` was removed, see
+  below), each one the render target one or more `other/`-tier plans write to instead of reaching
+  into a `WindowManager`/`View` layer (this architecture has none):
   - `slots: MutableState<List<IndicatorSlotUiState>>` — the rendered dot/icon slot list. Default is
     a single slot representing this plan's plain dot:
     `IndicatorSlotUiState(category = null, count = 1, highImportance = false)`.
@@ -319,11 +319,8 @@ the Activity if it is currently resumed.
     `docs/plans/other/importance-based-sizing/PLAN.md` (each slot's `highImportance`).
   - `tintColor: MutableState<Color>` — default `Color.White`, superseding this plan's hardcoded
     `#FFFFFF` (above). Written by `docs/plans/other/indicator-color-customization/PLAN.md`.
-  - `blinkIntervalMs: MutableState<Long?>` — `null` = no blink. **Synchronized across all
-    currently-shown slots — one shared interval, not a per-slot interval** (`docs/DECISIONS.md` §20).
-    When any currently-shown slot has `highImportance = true`, *all* currently-shown slots blink
-    together at this one interval, including slots that are not themselves high-importance. Written
-    by `docs/plans/other/importance-based-sizing/PLAN.md`.
+  - ~~`blinkIntervalMs: MutableState<Long?>`~~ — **removed** (`docs/DECISIONS.md` §15, superseded).
+    High importance is conveyed by `slots[].highImportance`'s 1.5x size alone now.
   - `indicatorOffset: MutableState<IntOffset>` — default `IntOffset.Zero`. Moves the whole slot
     group as one anchor; burn-in-protection repositions the group, not individual slots — the
     quadrant layout inside the group (`docs/plans/other/multi-notification-stacking/PLAN.md` §4)
@@ -335,22 +332,19 @@ the Activity if it is currently resumed.
     teardown. Written by `docs/plans/other/auto-stop-conditions/PLAN-1-proximity.md`.
 
   `FakeSleepContent` (§5 above) reads these states to render the slot group in place of today's
-  fixed single dot `Box`, roughly:
+  fixed single dot `Box`, roughly (blink params below are stale — see the `blinkIntervalMs` removal
+  note above; the shipped `IndicatorGroup` in `FakeSleepActivity.kt` has no blink logic at all):
 
   ```kotlin
   @Composable
   private fun IndicatorGroup(uiState: FakeSleepIndicatorUiState) {
       if (!uiState.indicatorVisible.value) return
       val slots = uiState.slots.value
-      val blinkMs = uiState.blinkIntervalMs.value
-      val blinking = blinkMs != null && slots.any { it.highImportance }
       Box(modifier = Modifier.offset { uiState.indicatorOffset.value }) {
           slots.forEachIndexed { index, slot ->
               SlotIcon(
                   slot = slot,
                   tint = uiState.tintColor.value,
-                  blinking = blinking, // shared across all slots — see blinkIntervalMs above
-                  blinkIntervalMs = blinkMs,
                   modifier = Modifier.quadrantOffset(index), // no-op offset when only one slot
               )
           }
