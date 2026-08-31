@@ -11,3 +11,6 @@
   directly from an actually-received notification. `enhancement`. Fixed via a "seen apps only"
   filter on the existing exclusion settings screen, in
   [PR #29](https://github.com/hachi921082-source/VirtuaLED/pull/29).
+- **[#30](https://github.com/hachi921082-source/VirtuaLED/issues/30)** — A notification arriving
+  while the screen is already off never triggers the fake-sleep session. `bug`. Fixed via
+  [PR #31](https://github.com/hachi921082-source/VirtuaLED/pull/31).
