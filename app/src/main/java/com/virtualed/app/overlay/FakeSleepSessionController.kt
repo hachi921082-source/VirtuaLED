@@ -150,6 +150,10 @@ class FakeSleepSessionController(
         val snapshot = pendingRepo.snapshot()
         val keywordsByApp = { pkg: String -> KeywordRegistry.keywordsCache[pkg] ?: emptyList() }
         uiState.slots.value = IndicatorSlotBuilder.build(snapshot, categoryMapper, keywordsByApp)
+        // GitHub issue #32 — a slot's footprint (e.g. highImportance's 1.5x scale) may have just
+        // changed; re-clamp the group's current position so it can't be left overflowing the
+        // screen edge until the next scheduled burn-in reposition jump.
+        FakeSleepActivityHolder.burnInProtector?.onSlotsMayHaveChanged()
     }
 
     private fun withScreenOffProcessingGuard(block: () -> Unit) {
