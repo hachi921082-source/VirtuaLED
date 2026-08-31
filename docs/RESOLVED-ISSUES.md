@@ -17,3 +17,6 @@
 - **[#33](https://github.com/hachi921082-source/VirtuaLED/issues/33)** — Remove the high-importance
   blink cue and its interval setting. `enhancement`. Fixed via
   [PR #34](https://github.com/hachi921082-source/VirtuaLED/pull/34).
+- **[#32](https://github.com/hachi921082-source/VirtuaLED/issues/32)** — High-importance 1.5x
+  scale-up between burn-in reposition jumps can push the indicator off-screen. `bug`. Fixed via
+  [PR #35](https://github.com/hachi921082-source/VirtuaLED/pull/35).
