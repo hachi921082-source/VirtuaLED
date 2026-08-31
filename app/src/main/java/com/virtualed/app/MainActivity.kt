@@ -54,7 +54,6 @@ import android.app.TimePickerDialog
 import com.virtualed.app.autostop.QuietHoursScheduler
 import com.virtualed.app.data.AppIconIndicatorSettings
 import com.virtualed.app.data.BatteryThresholdSettings
-import com.virtualed.app.data.BlinkSettings
 import com.virtualed.app.data.CountBadgeSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.FeatureEnabledState
@@ -207,13 +206,6 @@ fun MainSwitchScreen(
         }
     }
 
-    // docs/plans/other/importance-based-sizing/PLAN.md §5 — 高重要度時の点滅間隔設定。
-    // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値を仮表示する。
-    var blinkIntervalMs by remember { mutableStateOf(BlinkSettings.DEFAULT_INTERVAL_MS) }
-    LaunchedEffect(Unit) {
-        blinkIntervalMs = BlinkSettings.getIntervalMs(context)
-    }
-
     // docs/plans/other/multi-notification-stacking/PLAN.md §5 — 通知件数バッジ表示設定。
     // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (OFF) を仮表示する。
     var countBadgeEnabled by remember { mutableStateOf(CountBadgeSettings.DEFAULT_ENABLED) }
@@ -329,16 +321,6 @@ fun MainSwitchScreen(
                     onClick = onOpenExclusionSettings,
                     modifier = Modifier.padding(top = 16.dp),
                 )
-                BlinkIntervalStepper(
-                    intervalMs = blinkIntervalMs,
-                    onIntervalChanged = { newIntervalMs ->
-                        blinkIntervalMs = newIntervalMs
-                        coroutineScope.launch {
-                            BlinkSettings.setIntervalMs(context, newIntervalMs)
-                        }
-                    },
-                    modifier = Modifier.padding(top = 24.dp),
-                )
                 SettingsSwitchRow(
                     label = stringResource(R.string.settings_show_during_dnd),
                     checked = showDuringDnd,
@@ -447,49 +429,6 @@ private fun SettingsNavigationRow(
         Text(text = label, modifier = Modifier.weight(1f).padding(end = 8.dp))
         Button(onClick = onClick) {
             Text(text = buttonText)
-        }
-    }
-}
-
-/**
- * 高重要度時の点滅間隔を「−/+ ボタン + 数値」で調整するステッパー (2026-08-30、スライダーより
- * 狙った値に合わせやすいとの提案でスライダーから変更)。STEP_MS 刻みで BlinkSettings の
- * 範囲内にクランプする。
- */
-@Composable
-private fun BlinkIntervalStepper(
-    intervalMs: Long,
-    onIntervalChanged: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val stepMs = 100L
-    // 画面全体が左寄せの行 (SettingsSwitchRow 等) と中央寄せのブロックの混在で見づらい
-    // との指摘への対応 (2026-08-30) — fillMaxWidth + 左寄せで他の行と揃える。
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.Start,
-    ) {
-        Text(text = stringResource(R.string.settings_blink_interval_title))
-        Row(
-            modifier = Modifier.padding(top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = {
-                onIntervalChanged((intervalMs - stepMs).coerceAtLeast(BlinkSettings.MIN_INTERVAL_MS))
-            }) {
-                Text(text = "−", style = MaterialTheme.typography.titleLarge)
-            }
-            Text(
-                text = stringResource(R.string.settings_blink_interval_value, intervalMs),
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
-            IconButton(onClick = {
-                onIntervalChanged((intervalMs + stepMs).coerceAtMost(BlinkSettings.MAX_INTERVAL_MS))
-            }) {
-                Text(text = "+", style = MaterialTheme.typography.titleLarge)
-            }
         }
     }
 }
