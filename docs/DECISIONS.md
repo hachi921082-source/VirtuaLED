@@ -335,6 +335,18 @@ exists as an ambient always-there black screen. This removed the standalone "Idl
 §8's model entirely: the overlay is only ever in Indicator Shown or Preview Shown, and the moment
 neither applies, the session ends on its own rather than requiring an explicit dismiss.
 
+**Addendum (GitHub issue #30)**: the trigger condition above only covered "at least one
+notification pending at the moment of `ACTION_SCREEN_OFF`" — it never considered a notification
+arriving *after* the screen was already off with no session active. Live on-device testing
+confirmed this left the indicator permanently absent until the next manual screen-on/off cycle, for
+what is likely the single most common real-world usage pattern (phone idle, notification arrives
+while asleep). Fixed by wiring up `PendingNotificationsRepository`'s pre-existing but previously
+unused `onBecameNonEmpty` hook: when it fires while the screen is currently non-interactive
+(`PowerManager.isInteractive() == false`) and no session is active, the same gating checks run
+immediately instead of waiting for the next `ACTION_SCREEN_OFF`. This extends, rather than
+contradicts, the original design intent (never engage without a pending notification; engage as
+soon as reasonably possible once one exists while already asleep).
+
 ## 17. Why the WakeLock Renews Periodically Rather Than Only on Notification/Tap Events
 
 **Superseded by §18**: the mechanism this section describes (a `WakeLock` held for the whole
