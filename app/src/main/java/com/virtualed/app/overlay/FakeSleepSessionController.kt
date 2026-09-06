@@ -16,8 +16,10 @@ import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.DndState
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.KeywordRegistry
+import com.virtualed.app.data.NotificationSeenState
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.data.QuietHoursState
+import com.virtualed.app.importance.ImportanceResolver
 
 /**
  * フェイクスリープセッションの状態機械。VirtuaLedForegroundService が1回だけ生成し保持する。
@@ -69,14 +71,19 @@ class FakeSleepSessionController(
         // 保留通知の内容が変化するたび (2件目/3件目の到着等も含む) 重要度とカテゴリの両方を
         // 再評価する (docs/plans/other/importance-based-sizing/PLAN.md §6、
         // docs/plans/other/category-icons-and-assets/PLAN.md §5)。
-        pendingRepo.setOnChangedListener { if (sessionActive) recomputeIndicatorState() }
-        // GitHub issue #30 — 画面が既にオフの状態 (セッション未開始) で新規通知が届いた場合、
-        // 次に画面がオン→オフし直されるまでインジケーターが一切表示されなかった問題への対応。
-        // 画面が現在オフなら、その場で tryStartSession() の同じゲーティング判定を通す。
-        // 画面が点灯中ならここでは何もしない — 通常どおり次の ACTION_SCREEN_OFF で処理される。
-        pendingRepo.setOnBecameNonEmptyListener {
-            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (!pm.isInteractive) tryStartSession()
+        // GitHub issue #30 — セッション非アクティブ時に画面が既にオフなら、その場で
+        // tryStartSession() の同じゲーティング判定を通す。当初は「保留0件→1件以上」の遷移
+        // (setOnBecameNonEmptyListener) だけを見ていたが、既に何か保留中の状態でさらに新規が
+        // 届く方が実際にはよくあるケースであり、そちらも同じ穴を持っていたため、変化のたびに
+        // 毎回チェックするこの形に統合した。画面が点灯中ならここでは何もしない — 通常どおり
+        // 次の ACTION_SCREEN_OFF で処理される。
+        pendingRepo.setOnChangedListener {
+            if (sessionActive) {
+                recomputeIndicatorState()
+            } else {
+                val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                if (!pm.isInteractive) tryStartSession()
+            }
         }
     }
 
@@ -92,7 +99,17 @@ class FakeSleepSessionController(
         // クワイエットアワー時間帯中はゲーティングごと無効化する
         // (docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §6)。
         if (QuietHoursState.isActive()) return
-        if (pendingRepo.isEmpty()) return // ゲーティング判定 (§1 step 2) — 端末は通常通りスリープする
+        val snapshot = pendingRepo.snapshot()
+        if (snapshot.isEmpty()) return // ゲーティング判定 (§1 step 2) — 端末は通常通りスリープする
+        // GitHub issue #36 — 保留中の通知が全部既読 (前回までのセッションで既に提示済み) なら、
+        // 新規に知らせることが何も無いため、ドットも一切表示せずセッション自体を起動しない。
+        // ただし高重要度の通知が1件でもあれば、既読かどうかに関わらず起動する —
+        // 「未処理の重要な用件が残っている」事実はサイズ表示 (1.5x) と同様、既読状態とは
+        // 無関係に反映し続けるべきもの (このアプリの既存方針)。
+        val keywordsByApp = { pkg: String -> KeywordRegistry.keywordsCache[pkg] ?: emptyList() }
+        val allSeen = snapshot.all { NotificationSeenState.isSeen(it.key) }
+        val anyHighImportance = ImportanceResolver.isHighImportance(snapshot, keywordsByApp)
+        if (allSeen && !anyHighImportance) return
         startSession()
     }
 
@@ -131,6 +148,12 @@ class FakeSleepSessionController(
         FakeSleepActivityHolder.current?.finish()
         proximityMonitor.stop()
         sessionActive = false
+        // GitHub issue #36 — このセッションで提示された通知は「既知」として記録する。
+        // recomputeIndicatorState() 側ではなくここで行う — セッション開始直後の再計算時点で
+        // マークすると、そのセッションで初めて届いた通知自身も即座に「既知」扱いになり、
+        // 一度もプレビューに出せなくなってしまうため (次にセッションが始まった時点で初めて
+        // 「前回までに提示済みかどうか」を判定できればよい)。
+        NotificationSeenState.markSeen(pendingRepo.snapshot().map { it.key })
     }
 
     // FakeSleepActivity.onCreate() から、indicatorUiState 登録直後の初回評価用に呼び出される
