@@ -51,17 +51,16 @@ class PeekInteractionController(
         previewTimeoutHandler?.removeCallbacksAndMessages(null)
     }
 
-    // タップされたアイコンに関わらず、保留中の全通知を集約した同一リストを表示する (§4/§9)。
+    // タップされたアイコンに関わらず、保留中の通知を集約した同一リストを表示する (§4/§9)。
     // GitHub issue #36 — 前回までのセッションで既に提示済みの通知は除外し、今回新たに増えた分
     // だけを見せる (通知欄から消さずに画面をオン→オフし直しても、同じ内容が毎回蒸し返されない
-    // ようにするため)。ただし新規分が0件になってしまう場合は、空のプレビューを見せるよりは
-    // 保留中の全件を見せた方が有用なので、その時だけ従来通りの全件表示にフォールバックする。
-    private fun buildPreviewLines(): List<String> {
-        val snapshot = pendingRepo.snapshot()
-        val newOnly = snapshot.filterNot { NotificationSeenState.isSeen(it.key) }
-        val lines = if (newOnly.isEmpty()) snapshot else newOnly
-        return lines.map { "${it.appLabel}: ${it.title.orEmpty()} ${it.text.orEmpty()}".trim() }
-    }
+    // ようにするため)。フォールバックは無い — セッション自体が「保留中に1件以上の未提示が
+    // ある」ことを開始条件にしている (FakeSleepSessionController.tryStartSession()) ため、
+    // セッションが動いている間はここが0件になることは構造上起こらない。
+    private fun buildPreviewLines(): List<String> =
+        pendingRepo.snapshot()
+            .filterNot { NotificationSeenState.isSeen(it.key) }
+            .map { "${it.appLabel}: ${it.title.orEmpty()} ${it.text.orEmpty()}".trim() }
 
     private fun startPreviewTimeout() {
         previewTimeoutHandler = Handler(Looper.getMainLooper()).also {
