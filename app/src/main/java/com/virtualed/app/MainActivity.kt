@@ -35,6 +35,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,6 +67,7 @@ import com.virtualed.app.service.VirtuaLedForegroundService
 import com.virtualed.app.ui.CategorySettingsScreen
 import com.virtualed.app.ui.ExclusionSettingsScreen
 import com.virtualed.app.ui.KeywordSettingsScreen
+import com.virtualed.app.ui.LicenseScreen
 import com.virtualed.app.ui.OnboardingScreen
 import com.virtualed.app.ui.PremiumInfoScreen
 import com.virtualed.app.ui.theme.VirtuaLedTheme
@@ -112,6 +114,9 @@ fun VirtuaLedApp() {
     // boolean トグル方式で MainSwitchScreen ↔ PremiumInfoScreen を切り替える。
     var showPremiumInfo by remember { mutableStateOf(false) }
 
+    // Booth 等での配布を想定した開示事項画面。上と同じ boolean トグル方式で切り替える。
+    var showLicenseScreen by remember { mutableStateOf(false) }
+
     // POST_NOTIFICATIONS は通常のランタイム許可ダイアログで足りるため、通知リスナー onboarding
     // とは独立に、起動時に一度だけ要求する (PLAN のスコープ注記参照)。
     RequestPostNotificationsPermission()
@@ -126,12 +131,15 @@ fun VirtuaLedApp() {
         ExclusionSettingsScreen(onBack = { showExclusionSettings = false })
     } else if (showPremiumInfo) {
         PremiumInfoScreen(onBack = { showPremiumInfo = false })
+    } else if (showLicenseScreen) {
+        LicenseScreen(onBack = { showLicenseScreen = false })
     } else {
         MainSwitchScreen(
             onOpenKeywordSettings = { showKeywordSettings = true },
             onOpenCategorySettings = { showCategorySettings = true },
             onOpenExclusionSettings = { showExclusionSettings = true },
             onOpenPremiumInfo = { showPremiumInfo = true },
+            onOpenLicenseScreen = { showLicenseScreen = true },
         )
     }
 }
@@ -165,6 +173,7 @@ fun MainSwitchScreen(
     onOpenCategorySettings: () -> Unit = {},
     onOpenExclusionSettings: () -> Unit = {},
     onOpenPremiumInfo: () -> Unit = {},
+    onOpenLicenseScreen: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -361,6 +370,18 @@ fun MainSwitchScreen(
                         steps = BatteryThresholdSettings.MAX_THRESHOLD_PERCENT -
                             BatteryThresholdSettings.MIN_THRESHOLD_PERCENT - 1,
                         modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                // Booth 等での配布時に開示が必要な事項 (アイコン出典・使用ライブラリ・通知内容の
+                // 取り扱い) への導線。他の設定行と並ぶ機能ではないため、目立たせず控えめな
+                // テキストリンクとして最下部に置く。
+                TextButton(
+                    onClick = onOpenLicenseScreen,
+                    modifier = Modifier.padding(top = 24.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_license_link_label),
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
         }
