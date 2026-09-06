@@ -1,12 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 汎用のプレースホルダー・ランチャーアイコン (単純な円形ドット)。
-     最終的なアプリアイコンは docs/HANDOFF.md に別途未決事項として記録されている。 -->
+<!-- アプリアイコン案「灯りの角」の前景レイヤー: 端末シルエット + 角に灯る光
+     (virtualed-icon-corner-light.svg と同一の色・座標)。旧プレースホルダー
+     (単純な白丸) を置き換える。開発初期の呼称 "NoLED-Revive" (物理LED復活) への
+     回帰がコンセプト。グローは VectorDrawable がブラー効果を持たないため、
+     不透明度を変えた同心円3枚の重ね合わせで近似する。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- 端末シルエット (角丸34x61、ごく薄い塗り + 縁取り) -->
     <path
-        android:fillColor="@color/white"
-        android:pathData="M54,34m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0" />
+        android:pathData="M45,22 L63,22 A8,8 0 0 1 71,30 L71,75 A8,8 0 0 1 63,83 L45,83 A8,8 0 0 1 37,75 L37,30 A8,8 0 0 1 45,22 Z"
+        android:fillColor="#2B2D28"
+        android:fillAlpha="0.05"
+        android:strokeColor="#2B2D28"
+        android:strokeWidth="4.5" />
+    <!-- 角の光: 外側グロー -->
+    <path
+        android:pathData="M66,32m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0"
+        android:fillColor="#FF5A36"
+        android:fillAlpha="0.15" />
+    <!-- 角の光: 中間グロー -->
+    <path
+        android:pathData="M66,32m-10,0a10,10 0,1 1,20 0a10,10 0,1 1,-20 0"
+        android:fillColor="#FF5A36"
+        android:fillAlpha="0.3" />
+    <!-- 角の光: コア -->
+    <path
+        android:pathData="M66,32m-6.5,0a6.5,6.5 0,1 1,13 0a6.5,6.5 0,1 1,-13 0"
+        android:fillColor="#FF5A36" />
 </vector>
