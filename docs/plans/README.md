@@ -159,7 +159,12 @@ the `other/` tier in this order:
   32dp with the badge offset outward from the corner (fixed before merge, since the badge was
   otherwise covering most of a smaller icon), and `docs/QA.md` #21 records that the count-badge
   toggle doesn't live-refresh mid-session (same non-blocking class of gap as #18).
-- [`localization-additional-languages`](other/localization-additional-languages/PLAN.md)
+- [`localization-additional-languages`](other/localization-additional-languages/PLAN.md) — Done.
+  Adds `values-en/` and `values-zh-rCN/` translations of every existing string key. Corrected the
+  plan's original default-locale assumption at implementation time: every feature had already
+  shipped its strings in Japanese directly to the default `values/` folder (not English, as
+  originally planned), so `values-en/` was added instead of `values-ja/`, keeping `values/`
+  Japanese. This was the last of the original 10-item `other/`-tier feature list.
 - [`phone-call-overlay-suppression`](other/phone-call-overlay-suppression/PLAN.md)
 - [`indicator-color-customization`](other/indicator-color-customization/PLAN.md) — Done
   (implemented, reviewed, merged PR #12; revised per
