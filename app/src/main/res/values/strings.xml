@@ -90,6 +90,17 @@
     <string name="exclusion_settings_filter_all">すべて</string>
     <string name="exclusion_settings_seen_empty">まだ通知を受け取ったアプリはありません</string>
 
+    <!-- 配布パッケージの利用者向け開示事項 (Booth 等での配布を想定) -->
+    <string name="settings_license_link_label">ライセンス情報</string>
+    <string name="license_screen_title">ライセンス情報</string>
+    <string name="license_screen_back_button">戻る</string>
+    <string name="license_icons_heading">アイコンの出典</string>
+    <string name="license_icons_body">カテゴリアイコン5点は Google Material Icons (Apache License 2.0) のパスデータを改変して使用しています。</string>
+    <string name="license_libraries_heading">使用ライブラリ</string>
+    <string name="license_libraries_body">AndroidX Core / Lifecycle / Activity Compose / DataStore Preferences、Jetpack Compose (UI・Material3)、Kotlin Coroutines をいずれも Apache License 2.0 のもとで使用しています。</string>
+    <string name="license_notification_heading">通知内容の取り扱いについて</string>
+    <string name="license_notification_body">通知の差出人・本文冒頭などは、インジケーターに表示するためだけに読み取ります。外部への送信や保存は一切行いません。</string>
+
     <!-- docs/plans/other/multi-notification-stacking/PLAN.md §5 -->
     <string name="settings_show_count_badge">通知件数バッジを表示する</string>
 
