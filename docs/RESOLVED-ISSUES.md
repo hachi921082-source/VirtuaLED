@@ -24,3 +24,9 @@
   (dot, auto-wake, and preview) when every pending notification is already-seen, except when still
   high-importance. `enhancement`. Fixed via
   [PR #39](https://github.com/hachi921082-source/VirtuaLED/pull/39).
+- **[#37](https://github.com/hachi921082-source/VirtuaLED/issues/37)** — Add an in-app
+  license/credits screen for redistribution. `enhancement`. Fixed via
+  [PR #40](https://github.com/hachi921082-source/VirtuaLED/pull/40).
+- **[#38](https://github.com/hachi921082-source/VirtuaLED/issues/38)** — Replace the placeholder
+  launcher icon with a real design. `enhancement`. Fixed via
+  [PR #41](https://github.com/hachi921082-source/VirtuaLED/pull/41).
