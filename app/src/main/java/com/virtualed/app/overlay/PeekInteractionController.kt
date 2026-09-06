@@ -2,6 +2,7 @@ package com.virtualed.app.overlay
 
 import android.os.Handler
 import android.os.Looper
+import com.virtualed.app.data.NotificationSeenState
 import com.virtualed.app.data.PendingNotificationsRepository
 
 /**
@@ -50,9 +51,16 @@ class PeekInteractionController(
         previewTimeoutHandler?.removeCallbacksAndMessages(null)
     }
 
-    // タップされたアイコンに関わらず、保留中の全通知を集約した同一リストを表示する (§4/§9)。
+    // タップされたアイコンに関わらず、保留中の通知を集約した同一リストを表示する (§4/§9)。
+    // GitHub issue #36 — 前回までのセッションで既に提示済みの通知は除外し、今回新たに増えた分
+    // だけを見せる (通知欄から消さずに画面をオン→オフし直しても、同じ内容が毎回蒸し返されない
+    // ようにするため)。フォールバックは無い — セッション自体が「保留中に1件以上の未提示が
+    // ある」ことを開始条件にしている (FakeSleepSessionController.tryStartSession()) ため、
+    // セッションが動いている間はここが0件になることは構造上起こらない。
     private fun buildPreviewLines(): List<String> =
-        pendingRepo.snapshot().map { "${it.appLabel}: ${it.title.orEmpty()} ${it.text.orEmpty()}".trim() }
+        pendingRepo.snapshot()
+            .filterNot { NotificationSeenState.isSeen(it.key) }
+            .map { "${it.appLabel}: ${it.title.orEmpty()} ${it.text.orEmpty()}".trim() }
 
     private fun startPreviewTimeout() {
         previewTimeoutHandler = Handler(Looper.getMainLooper()).also {

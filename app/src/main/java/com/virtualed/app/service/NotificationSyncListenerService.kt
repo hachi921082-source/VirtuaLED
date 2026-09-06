@@ -7,6 +7,7 @@ import android.service.notification.StatusBarNotification
 import com.virtualed.app.data.AppExclusionSettings
 import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.DndState
+import com.virtualed.app.data.NotificationSeenState
 import com.virtualed.app.data.PendingNotificationInfo
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.data.SeenAppsHistory
@@ -46,6 +47,9 @@ class NotificationSyncListenerService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return
         PendingNotificationsRepository.remove(sbn.key)
+        // issue #36 — 通知が実際に消えたので「既知」記録も一緒に片付ける。無制限な肥大化を防ぎ、
+        // 同じ key で再投稿された場合に改めて新規扱いにできるようにする。
+        NotificationSeenState.forget(sbn.key)
     }
 
     override fun onListenerConnected() {
