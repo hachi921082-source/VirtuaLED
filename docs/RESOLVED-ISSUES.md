@@ -20,3 +20,7 @@
 - **[#32](https://github.com/hachi921082-source/VirtuaLED/issues/32)** — High-importance 1.5x
   scale-up between burn-in reposition jumps can push the indicator off-screen. `bug`. Fixed via
   [PR #35](https://github.com/hachi921082-source/VirtuaLED/pull/35).
+- **[#36](https://github.com/hachi921082-source/VirtuaLED/issues/36)** — Suppress the whole session
+  (dot, auto-wake, and preview) when every pending notification is already-seen, except when still
+  high-importance. `enhancement`. Fixed via
+  [PR #39](https://github.com/hachi921082-source/VirtuaLED/pull/39).
