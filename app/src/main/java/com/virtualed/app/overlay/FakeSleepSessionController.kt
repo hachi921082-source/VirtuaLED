@@ -16,6 +16,7 @@ import com.virtualed.app.data.DndSettings
 import com.virtualed.app.data.DndState
 import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.KeywordRegistry
+import com.virtualed.app.data.NotificationSeenState
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.data.QuietHoursState
 
@@ -131,6 +132,12 @@ class FakeSleepSessionController(
         FakeSleepActivityHolder.current?.finish()
         proximityMonitor.stop()
         sessionActive = false
+        // GitHub issue #36 — このセッションで提示された通知は「既知」として記録する。
+        // recomputeIndicatorState() 側ではなくここで行う — セッション開始直後の再計算時点で
+        // マークすると、そのセッションで初めて届いた通知自身も即座に「既知」扱いになり、
+        // 一度もプレビューに出せなくなってしまうため (次にセッションが始まった時点で初めて
+        // 「前回までに提示済みかどうか」を判定できればよい)。
+        NotificationSeenState.markSeen(pendingRepo.snapshot().map { it.key })
     }
 
     // FakeSleepActivity.onCreate() から、indicatorUiState 登録直後の初回評価用に呼び出される
