@@ -721,3 +721,37 @@ is active.
 case applies based on *where it's read*, not by copying whichever sibling settings object happens
 to be nearest in the file — a value read only by composables wants Case A; a value read by a
 non-Compose callback wants Case B (or both, if it's read from both kinds of place).
+
+## 25. "Already-Seen" Notifications Suppress the Whole Session, Not Just the Preview Text — Except When Still High-Importance
+
+Issue #36 started narrower than it ended up: the first pass only filtered
+`PeekInteractionController.buildPreviewLines()` so a still-pending, already-shown notification
+wouldn't keep re-appearing in the tap-to-view text every time the screen cycled. Live testing
+showed this didn't fix the actual complaint — the dot itself (and the screen auto-waking via the
+full-screen-intent) kept re-triggering for the exact same stale content, since
+`FakeSleepSessionController.tryStartSession()`'s gating never considered "seen" status at all.
+
+**Corrected design**: `tryStartSession()` now also refuses to start a session at all when every
+currently-pending notification has already been shown in some prior session — the whole point is
+"nothing new to tell you," so no dot, no auto-wake, no preview, matching normal sleep. With the
+gate in place, `buildPreviewLines()`'s only-show-unseen filter can never actually produce an empty
+list while a session is running (starting one already guarantees at least one unseen item), so the
+"what if everything's already seen" fallback question that came up during design was moot — that
+state is unreachable, not something to pick a fallback for.
+
+**Importance is exempt from this suppression**: a high-importance notification (keyword-matched,
+`ImportanceResolver.isHighImportance()`) keeps triggering the session even once already-seen, as
+long as it's still genuinely pending. This mirrors the already-established reasoning for why
+1.5x sizing reflects true pending status regardless of seen-state (§15's original rationale, before
+blink was removed) — an unresolved important item shouldn't go quiet just because the user glanced
+at it once without acting on it. Only the combination of *all-seen and no high-importance item*
+suppresses the session; one keyword-matched notification is enough to keep it alive.
+
+**Also folded in while fixing this**: the screen-off-while-session-inactive trigger
+(`docs/DECISIONS.md` §16's issue #30 addendum) originally only fired on the pending set's
+empty→non-empty transition (`setOnBecameNonEmptyListener`). Real usage showed the far more common
+case is a *already-non-empty* pending set gaining one more item while the screen sits untouched —
+that transition has the identical bug (nothing wakes the screen until the next unrelated
+screen-off/on cycle) and was previously unfixed. Both transitions are now handled by one
+`setOnChangedListener` check (skip if a session is already active; otherwise check the screen state
+and try starting one) rather than two overlapping listeners.
