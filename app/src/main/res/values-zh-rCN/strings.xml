@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation. Default (values/strings.xml) is Japanese; this file, and
+     values-en, are translations of it (docs/plans/other/localization-additional-languages/PLAN.md).
+     Keep keys in sync with values/strings.xml; a missing key here just falls back to Japanese. -->
+<resources>
+    <string name="app_name">VirtuaLED</string>
+
+    <string name="fgs_channel_name">VirtuaLED 状态</string>
+    <string name="fgs_notification_title">VirtuaLED</string>
+    <string name="fgs_status_on">已启用</string>
+    <string name="fgs_status_off">已停用</string>
+
+    <string name="fgs_action_turn_off">关闭</string>
+    <string name="fgs_action_turn_on">开启</string>
+
+    <string name="fake_sleep_channel_name">VirtuaLED 伪睡眠</string>
+    <string name="fake_sleep_notification_title">VirtuaLED</string>
+
+    <string name="onboarding_intro">要使用 VirtuaLED，请授予以下权限</string>
+    <string name="onboarding_listener_title">通知访问权限</string>
+    <string name="onboarding_listener_description">检测未读通知所必需。请在下一个画面中启用 VirtuaLED。</string>
+    <string name="onboarding_granted_label">已授权</string>
+    <string name="onboarding_grant_button">授权</string>
+
+    <string name="settings_app_launch_label">启用应用</string>
+
+    <string name="settings_show_during_dnd">在勿扰模式(DND)下也显示</string>
+
+    <string name="settings_battery_threshold_label">电池电量低于 %1$d%% 时自动停止</string>
+    <string name="auto_stop_battery_toast">电池电量已降至 %1$d%% 以下，已停止</string>
+
+    <string name="settings_quiet_hours_enabled_label">设置暂停时间段</string>
+    <string name="settings_quiet_hours_start_button">开始：%1$02d:%2$02d</string>
+    <string name="settings_quiet_hours_end_button">结束：%1$02d:%2$02d</string>
+
+    <string name="settings_indicator_color_label">图标颜色</string>
+
+    <string name="settings_keyword_settings_row_label">重要关键词设置</string>
+    <string name="keyword_settings_title">关键词设置</string>
+    <string name="keyword_settings_back_button">返回</string>
+    <string name="keyword_settings_pick_app_label">选择应用</string>
+    <string name="keyword_settings_add_keyword_hint">输入关键词</string>
+    <string name="keyword_settings_add_button">添加</string>
+    <string name="keyword_settings_remove_button">删除</string>
+    <string name="keyword_settings_empty_keywords">尚未注册任何关键词</string>
+
+    <string name="settings_category_settings_row_label">按应用设置图标类别</string>
+    <string name="settings_row_button_label">设置</string>
+    <string name="category_settings_title">类别设置</string>
+    <string name="category_settings_back_button">返回</string>
+    <string name="category_settings_pick_app_label">选择应用</string>
+    <string name="category_settings_category_unset">未设置</string>
+    <string name="category_settings_category_phone">电话</string>
+    <string name="category_settings_category_mail">邮件</string>
+    <string name="category_settings_category_sns">社交软件</string>
+    <string name="category_settings_category_calendar">日历</string>
+    <string name="category_settings_category_other">其他</string>
+
+    <string name="settings_exclusion_settings_row_label">排除应用设置</string>
+    <string name="exclusion_settings_title">排除设置</string>
+    <string name="exclusion_settings_back_button">返回</string>
+    <string name="exclusion_settings_description">已开启的应用通知将完全不会显示在指示灯上</string>
+    <string name="exclusion_settings_filter_seen">仅显示发过通知的应用</string>
+    <string name="exclusion_settings_filter_all">全部</string>
+    <string name="exclusion_settings_seen_empty">尚未收到任何应用的通知</string>
+
+    <string name="settings_license_link_label">许可信息</string>
+    <string name="license_screen_title">许可信息</string>
+    <string name="license_screen_back_button">返回</string>
+    <string name="license_icons_heading">图标来源</string>
+    <string name="license_icons_body">5个类别图标使用了经过修改的 Google Material Icons（Apache License 2.0）路径数据。</string>
+    <string name="license_libraries_heading">使用的库</string>
+    <string name="license_libraries_body">AndroidX Core / Lifecycle / Activity Compose / DataStore Preferences、Jetpack Compose (UI・Material3)、Kotlin Coroutines 均基于 Apache License 2.0 使用。</string>
+    <string name="license_notification_heading">通知内容的处理方式</string>
+    <string name="license_notification_body">通知的发件人和正文开头仅用于在指示灯上显示，绝不会发送到外部或被保存。</string>
+
+    <string name="settings_show_count_badge">显示通知数量徽标</string>
+
+    <string name="settings_show_app_icon">显示通知来源应用自身的图标</string>
+    <string name="settings_premium_cta_button">了解付费功能</string>
+
+    <string name="premium_info_title">高级功能</string>
+    <string name="premium_info_back_button">返回</string>
+    <string name="premium_info_description">该高级功能可直接显示通知来源应用自身的图标。购买功能即将推出。</string>
+    <string name="premium_info_purchase_button_placeholder">即将推出</string>
+</resources>

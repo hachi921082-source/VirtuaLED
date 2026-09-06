@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English translation. Default (values/strings.xml) is Japanese; this file, and values-zh-rCN,
+     are translations of it (docs/plans/other/localization-additional-languages/PLAN.md).
+     Keep keys in sync with values/strings.xml; a missing key here just falls back to Japanese. -->
+<resources>
+    <string name="app_name">VirtuaLED</string>
+
+    <string name="fgs_channel_name">VirtuaLED Status</string>
+    <string name="fgs_notification_title">VirtuaLED</string>
+    <string name="fgs_status_on">Active</string>
+    <string name="fgs_status_off">Inactive</string>
+
+    <string name="fgs_action_turn_off">Turn Off</string>
+    <string name="fgs_action_turn_on">Turn On</string>
+
+    <string name="fake_sleep_channel_name">VirtuaLED Fake Sleep</string>
+    <string name="fake_sleep_notification_title">VirtuaLED</string>
+
+    <string name="onboarding_intro">To use VirtuaLED, please grant the following permission</string>
+    <string name="onboarding_listener_title">Notification Access</string>
+    <string name="onboarding_listener_description">Required to detect unread notifications. Please enable VirtuaLED on the next screen.</string>
+    <string name="onboarding_granted_label">Granted</string>
+    <string name="onboarding_grant_button">Grant</string>
+
+    <string name="settings_app_launch_label">Enable App</string>
+
+    <string name="settings_show_during_dnd">Show even during Do Not Disturb (DND)</string>
+
+    <string name="settings_battery_threshold_label">Auto-stop when battery is at or below %1$d%%</string>
+    <string name="auto_stop_battery_toast">Stopped because battery dropped to %1$d%% or below</string>
+
+    <string name="settings_quiet_hours_enabled_label">Set a pause schedule</string>
+    <string name="settings_quiet_hours_start_button">Start: %1$02d:%2$02d</string>
+    <string name="settings_quiet_hours_end_button">End: %1$02d:%2$02d</string>
+
+    <string name="settings_indicator_color_label">Icon Color</string>
+
+    <string name="settings_keyword_settings_row_label">Important Keyword Settings</string>
+    <string name="keyword_settings_title">Keyword Settings</string>
+    <string name="keyword_settings_back_button">Back</string>
+    <string name="keyword_settings_pick_app_label">Select App</string>
+    <string name="keyword_settings_add_keyword_hint">Enter keyword</string>
+    <string name="keyword_settings_add_button">Add</string>
+    <string name="keyword_settings_remove_button">Remove</string>
+    <string name="keyword_settings_empty_keywords">No keywords registered yet</string>
+
+    <string name="settings_category_settings_row_label">Icon Category Settings per App</string>
+    <string name="settings_row_button_label">Settings</string>
+    <string name="category_settings_title">Category Settings</string>
+    <string name="category_settings_back_button">Back</string>
+    <string name="category_settings_pick_app_label">Select App</string>
+    <string name="category_settings_category_unset">Unset</string>
+    <string name="category_settings_category_phone">Phone</string>
+    <string name="category_settings_category_mail">Mail</string>
+    <string name="category_settings_category_sns">SNS</string>
+    <string name="category_settings_category_calendar">Calendar</string>
+    <string name="category_settings_category_other">Other</string>
+
+    <string name="settings_exclusion_settings_row_label">Excluded App Settings</string>
+    <string name="exclusion_settings_title">Exclusion Settings</string>
+    <string name="exclusion_settings_back_button">Back</string>
+    <string name="exclusion_settings_description">Notifications from apps turned ON here will never appear on the indicator</string>
+    <string name="exclusion_settings_filter_seen">Only apps that have notified</string>
+    <string name="exclusion_settings_filter_all">All</string>
+    <string name="exclusion_settings_seen_empty">No apps have sent a notification yet</string>
+
+    <string name="settings_license_link_label">License Information</string>
+    <string name="license_screen_title">License Information</string>
+    <string name="license_screen_back_button">Back</string>
+    <string name="license_icons_heading">Icon Attribution</string>
+    <string name="license_icons_body">The 5 category icons use modified path data from Google Material Icons (Apache License 2.0).</string>
+    <string name="license_libraries_heading">Libraries Used</string>
+    <string name="license_libraries_body">AndroidX Core / Lifecycle / Activity Compose / DataStore Preferences, Jetpack Compose (UI &amp; Material3), and Kotlin Coroutines are all used under the Apache License 2.0.</string>
+    <string name="license_notification_heading">How Notification Content Is Handled</string>
+    <string name="license_notification_body">The sender and the beginning of the message body are read only to display them on the indicator. Nothing is ever sent externally or stored.</string>
+
+    <string name="settings_show_count_badge">Show notification count badge</string>
+
+    <string name="settings_show_app_icon">Show the notifying app\'s own icon</string>
+    <string name="settings_premium_cta_button">About Premium</string>
+
+    <string name="premium_info_title">Premium Feature</string>
+    <string name="premium_info_back_button">Back</string>
+    <string name="premium_info_description">A premium feature that shows the notifying app\'s own icon as-is. Purchasing will be available soon.</string>
+    <string name="premium_info_purchase_button_placeholder">Coming Soon</string>
+</resources>
