@@ -207,8 +207,10 @@ design replaces it).
 
 ## 10. Localization File Structure
 
-- `values/strings.xml` — default/English
-- `values-ja/strings.xml` — Japanese
+- `values/strings.xml` — default/Japanese (every feature's strings were added here directly as
+  implemented; see `docs/plans/other/localization-additional-languages/PLAN.md`'s correction note
+  for why this superseded the originally-planned "default = English" design)
+- `values-en/strings.xml` — English
 - `values-zh-rCN/strings.xml` — Simplified Chinese (use `zh-rCN`, not Traditional Chinese
   folder naming)
 
