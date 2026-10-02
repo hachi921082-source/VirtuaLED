@@ -36,6 +36,9 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.virtualed.app.R
 import com.virtualed.app.category.IndicatorCategory
@@ -103,6 +106,16 @@ class FakeSleepActivity : ComponentActivity() {
         // アイドルタイムアウトによる画面消灯を抑止する。これが無いと OS の screen_off_timeout
         // 経過後に電源ボタン再押下と同一の ACTION_SCREEN_OFF が飛び、セッションが誤終了する。
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // ステータスバー/ナビゲーションバーを隠す — 焼き付き防止 (BurnInProtector) はインジケーター
+        // 本体の位置しか動かさないため、システムバーを表示したままだと同じ位置に固定表示され続け、
+        // 対策の対象外になってしまう。点灯し続ける分の電力も無駄になる。端末端からのスワイプで
+        // 一時的に再表示可能 (BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE) — 通常のタップ操作とは
+        // 別ジェスチャーなので、ドット/プレビューのタップ判定とは干渉しない。
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
         burnInProtector = BurnInProtector(
             indicatorUiState = indicatorUiState,
             // 回転/構成変更対策のため、都度 WindowManager から読み直す (キャッシュしない)。
