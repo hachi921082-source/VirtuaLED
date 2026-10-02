@@ -30,3 +30,6 @@
 - **[#38](https://github.com/hachi921082-source/VirtuaLED/issues/38)** — Replace the placeholder
   launcher icon with a real design. `enhancement`. Fixed via
   [PR #41](https://github.com/hachi921082-source/VirtuaLED/pull/41).
+- **[#43](https://github.com/hachi921082-source/VirtuaLED/issues/43)** — MainActivity can appear in
+  the foreground instead of the real lock screen after unlocking from a fake-sleep session. `bug`.
+  Fixed via [PR #45](https://github.com/hachi921082-source/VirtuaLED/pull/45).
