@@ -85,12 +85,17 @@
         <!--
           docs/plans/mvp/fake-sleep-overlay/PLAN.md §5 (verbatim)。
           full-screen-intent 通知経由で OS が起動するため exported=false で問題ない。
+          taskAffinity="" (GitHub issue #43) — MainActivity のデフォルト taskAffinity
+          (= アプリのパッケージ名) と分離する。これが無いと singleTask が、MainActivity の
+          タスクが recents に残っている場合にそれを再利用してしまい、endSession() の
+          finish() 後に本来の実ロック画面/ランチャーではなく MainActivity が前面に出ることがあった。
         -->
         <activity
             android:name=".overlay.FakeSleepActivity"
             android:exported="false"
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
+            android:taskAffinity=""
             android:theme="@style/Theme.VirtuaLed.FakeSleep" />
 
         <!--
