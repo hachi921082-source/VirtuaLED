@@ -70,6 +70,7 @@ import com.virtualed.app.ui.ExclusionSettingsScreen
 import com.virtualed.app.ui.KeywordSettingsScreen
 import com.virtualed.app.ui.LicenseScreen
 import com.virtualed.app.ui.OnboardingScreen
+import com.virtualed.app.ui.RecheckOnResume
 import com.virtualed.app.ui.PremiumInfoScreen
 import com.virtualed.app.ui.theme.VirtuaLedTheme
 import kotlinx.coroutines.launch
@@ -90,6 +91,11 @@ class MainActivity : ComponentActivity() {
  * アプリのルート画面。通知リスナーアクセスが未許可の間は OnboardingScreen を表示し、
  * 許可済みになった時点でメインのスイッチ画面へ切り替える
  * (docs/plans/mvp/permission-onboarding/PLAN.md §5)。
+ *
+ * OnboardingScreen は全画面通知の許可も揃うまで完了しないが (GitHub issue #49)、ここでの
+ * 表示判定は通知リスナーアクセスのみのまま — 初回設定後に全画面通知だけが取り消された場合は
+ * onboarding へ戻さず、MainSwitchScreen 側で警告を出してスイッチを無効化する方針
+ * (ユーザー決定、issue #49)。
  */
 @Composable
 fun VirtuaLedApp() {
@@ -183,6 +189,25 @@ fun MainSwitchScreen(
     // 一旦外れて再度組み込まれるため、固定値 false のままだと FGS が実際には動作継続していても
     // スイッチの見た目だけ OFF に戻ってしまう (実機テストで発見)。
     var enabled by remember { mutableStateOf(isForegroundServiceRunning(context)) }
+
+    // GitHub issue #49 — 全画面通知が許可されていない間はフェイクスリープ画面を表示できないため、
+    // メインスイッチを ON にできないようにし、警告と設定画面への導線を出す。許可状態は
+    // コールバックで観測できないため、設定画面から戻ってきたタイミング (ON_RESUME) で再チェックする。
+    var fullScreenIntentAllowed by remember {
+        mutableStateOf(PermissionChecker.canUseFullScreenIntent(context))
+    }
+    RecheckOnResume {
+        fullScreenIntentAllowed = PermissionChecker.canUseFullScreenIntent(context)
+    }
+    // ON のまま許可が取り消されていた場合 (OS アップデート等、docs/QA.md #24) は、この画面を
+    // 開いた時点で自動的に OFF にする — サービスは動いているのに画面が出ない状態を残さない
+    // (ユーザー決定、issue #49)。
+    LaunchedEffect(fullScreenIntentAllowed) {
+        if (!fullScreenIntentAllowed && enabled) {
+            enabled = false
+            setForegroundServiceEnabled(context, false)
+        }
+    }
 
     // docs/plans/other/dnd-handling/PLAN.md §4 — UI 表示は内部フラグ hide_during_dnd の反転表示。
     // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (= 表示しない) を仮表示する。
@@ -283,7 +308,15 @@ fun MainSwitchScreen(
                         enabled = checked
                         setForegroundServiceEnabled(context, checked)
                     },
+                    switchEnabled = fullScreenIntentAllowed,
                 )
+                if (!fullScreenIntentAllowed) {
+                    FullScreenIntentWarning(
+                        onOpenSettings = {
+                            context.startActivity(PermissionChecker.fullScreenIntentSettingsIntent(context))
+                        },
+                    )
+                }
                 ColorPickerSection(
                     selectedColorArgb = indicatorColorArgb,
                     onColorChanged = onIndicatorColorChanged,
@@ -433,6 +466,7 @@ private fun SettingsSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    switchEnabled: Boolean = true,
 ) {
     Row(
         modifier = modifier
@@ -444,7 +478,30 @@ private fun SettingsSwitchRow(
         // weight(1f) で残り幅いっぱいに広げ、長いラベルは折り返す — 横幅の狭い画面で
         // スイッチが画面外に押し出されるのを防ぐ (2026-08-30 の指摘への対応)。
         Text(text = label, modifier = Modifier.weight(1f).padding(end = 8.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = switchEnabled)
+    }
+}
+
+/**
+ * 全画面通知が許可されていない間、メインスイッチの直下に出す警告 (GitHub issue #49)。
+ * 端末の「全画面通知」許可画面を直接開くボタンを添え、再インストールせずに復旧できるようにする
+ * (スイッチを戻すだけで復旧することを実機で確認済み、issue #49)。
+ */
+@Composable
+private fun FullScreenIntentWarning(onOpenSettings: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.settings_fsi_denied_warning),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Button(onClick = onOpenSettings, modifier = Modifier.padding(top = 8.dp)) {
+            Text(text = stringResource(R.string.settings_fsi_open_settings_button))
+        }
     }
 }
 

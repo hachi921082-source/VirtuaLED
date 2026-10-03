@@ -59,7 +59,10 @@ Required `<uses-permission>` entries:
 - `USE_FULL_SCREEN_INTENT` (launches `FakeSleepActivity` over the lock screen — see §1;
   auto-granted on sideloaded/adb-installed builds, but Android 14+ restricts default grant to
   call/alarm-category apps at Google Play install time — a consideration for the deferred general
-  Play Store release, `docs/DECISIONS.md` §5/§18, not for current personal-use distribution)
+  Play Store release, `docs/DECISIONS.md` §5/§18, not for current personal-use distribution).
+  On Android 14+ the grant is **revocable after install** — by the user through Settings > Apps >
+  Special app access > Full-screen notifications, and in practice also by an OS update
+  (`docs/QA.md` #24). The app therefore checks it at runtime; see §15.
 - `FOREGROUND_SERVICE`
 - `FOREGROUND_SERVICE_SPECIAL_USE`
 - `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`
@@ -270,10 +273,28 @@ Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
 
 Compose onboarding screen checks the permission's grant state and only guides to settings if not
 yet granted. (The overlay-permission step from an earlier design is gone — `SYSTEM_ALERT_WINDOW`
-is no longer used at all, see §1/§2. `USE_FULL_SCREEN_INTENT` needs no onboarding step either: it
-was confirmed auto-granted for this project's sideload/personal-use distribution, `docs/DECISIONS.md`
-§18 — this would need revisiting only if/when the deferred Play Store release, `docs/DECISIONS.md`
-§5, is pursued.)
+is no longer used at all, see §1/§2.)
+
+**Full-screen-intent step (GitHub issue #49).** The earlier assumption that `USE_FULL_SCREEN_INTENT`
+never needs a check (auto-granted for sideload builds, `docs/DECISIONS.md` §18) still holds at
+install time, but on Android 14+ the grant can be revoked later (`docs/QA.md` #24). The app checks it
+with `PermissionChecker.canUseFullScreenIntent()` (`NotificationManager.canUseFullScreenIntent()` on
+API 34+, always `true` below 34) and sends the user to
+`Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT` (`package:` URI, which opens this app's page
+directly):
+
+- **Onboarding** shows a second card for it and completes only when both notification listener
+  access and full-screen intent are granted. When FSI is already granted, the card simply shows
+  "granted".
+- **Root routing** still gates on notification listener access alone. If only FSI is revoked after
+  onboarding, the user is not sent back to onboarding; `MainSwitchScreen` handles it instead.
+- **`MainSwitchScreen`** rechecks on every `ON_RESUME`. While FSI is denied:
+  - the main ON switch is disabled, and a warning with an "Open settings" button is shown;
+  - if the feature was already ON when the revocation is detected, it is switched OFF
+    automatically, so the service never keeps running while sessions can't appear.
+
+  Turning the system switch back on restores FSI immediately, with no reinstall needed (verified
+  live, issue #49).
 
 ## 16. WakeLock Discipline
 

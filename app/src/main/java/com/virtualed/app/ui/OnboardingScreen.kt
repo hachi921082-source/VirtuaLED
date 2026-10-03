@@ -32,11 +32,13 @@ import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.ui.theme.VirtuaLedTheme
 
 /**
- * 通知リスナーアクセスの許可を案内する onboarding 画面。
+ * 通知リスナーアクセスと全画面通知の許可を案内する onboarding 画面。
  *
  * docs/plans/mvp/permission-onboarding/PLAN.md §3 を実装。MVP スコープは通知リスナー
- * アクセス 1 件のみのため、チェックリストではなく単一カードの案内画面となる
- * (同 PLAN のスコープ注記参照)。
+ * アクセス 1 件のみだったが、全画面通知の許可が OS 側で取り消されうると判明したため
+ * (docs/QA.md #24)、そのカードを追加した (GitHub issue #49)。両方が許可済みになった時点で
+ * onAllGranted を呼ぶ。全画面通知が既に許可済み (API 33 以下は常に許可扱い) なら、
+ * そのカードは「許可済み」表示になるだけで追加の操作は不要。
  */
 @Composable
 fun OnboardingScreen(onAllGranted: () -> Unit) {
@@ -44,14 +46,18 @@ fun OnboardingScreen(onAllGranted: () -> Unit) {
     var listenerGranted by remember {
         mutableStateOf(PermissionChecker.hasNotificationListenerAccess(context))
     }
+    var fullScreenIntentGranted by remember {
+        mutableStateOf(PermissionChecker.canUseFullScreenIntent(context))
+    }
 
     // §4 — Settings 画面から戻ってきたタイミングで再チェックする
     RecheckOnResume {
         listenerGranted = PermissionChecker.hasNotificationListenerAccess(context)
+        fullScreenIntentGranted = PermissionChecker.canUseFullScreenIntent(context)
     }
 
-    LaunchedEffect(listenerGranted) {
-        if (listenerGranted) onAllGranted()
+    LaunchedEffect(listenerGranted, fullScreenIntentGranted) {
+        if (listenerGranted && fullScreenIntentGranted) onAllGranted()
     }
 
     Surface(
@@ -77,6 +83,15 @@ fun OnboardingScreen(onAllGranted: () -> Unit) {
                     context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 },
             )
+            PermissionCard(
+                granted = fullScreenIntentGranted,
+                title = stringResource(R.string.onboarding_fsi_title),
+                description = stringResource(R.string.onboarding_fsi_description),
+                onGrantClick = {
+                    context.startActivity(PermissionChecker.fullScreenIntentSettingsIntent(context))
+                },
+                modifier = Modifier.padding(top = 16.dp),
+            )
         }
     }
 }
@@ -91,8 +106,9 @@ private fun PermissionCard(
     title: String,
     description: String,
     onGrantClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = title, style = MaterialTheme.typography.titleSmall)
             Text(
@@ -119,10 +135,11 @@ private fun PermissionCard(
  *
  * 通知リスナーアクセスの許可状態はコールバックで観測できず、ユーザーが Settings 画面で許可して
  * 戻ってきたタイミングで再チェックする以外に検知手段がない
- * (docs/plans/mvp/permission-onboarding/PLAN.md §4)。
+ * (docs/plans/mvp/permission-onboarding/PLAN.md §4)。全画面通知の許可も同様のため、
+ * MainSwitchScreen からも使う (GitHub issue #49)。
  */
 @Composable
-private fun RecheckOnResume(onResume: () -> Unit) {
+fun RecheckOnResume(onResume: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
