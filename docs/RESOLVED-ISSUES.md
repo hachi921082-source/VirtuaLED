@@ -33,3 +33,6 @@
 - **[#43](https://github.com/hachi921082-source/VirtuaLED/issues/43)** — MainActivity can appear in
   the foreground instead of the real lock screen after unlocking from a fake-sleep session. `bug`.
   Fixed via [PR #45](https://github.com/hachi921082-source/VirtuaLED/pull/45).
+- **[#47](https://github.com/hachi921082-source/VirtuaLED/issues/47)** — Make issue #36's
+  already-seen session suppression user-toggleable. `enhancement`. Fixed via
+  [PR #48](https://github.com/hachi921082-source/VirtuaLED/pull/48).
