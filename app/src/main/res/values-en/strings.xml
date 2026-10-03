@@ -24,6 +24,8 @@
 
     <string name="settings_app_launch_label">Enable App</string>
 
+    <string name="settings_repeat_suppression_label">Don\'t repeat already-seen notifications</string>
+
     <string name="settings_show_during_dnd">Show even during Do Not Disturb (DND)</string>
 
     <string name="settings_battery_threshold_label">Auto-stop when battery is at or below %1$d%%</string>
