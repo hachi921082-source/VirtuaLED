@@ -39,3 +39,6 @@
 - **[#49](https://github.com/hachi921082-source/VirtuaLED/issues/49)** — Detect revoked
   full-screen-intent permission and guide the user to re-enable it. `enhancement`. Fixed via
   [PR #50](https://github.com/hachi921082-source/VirtuaLED/pull/50).
+- **[#44](https://github.com/hachi921082-source/VirtuaLED/issues/44)** — Hide the status and
+  navigation bars during a fake-sleep session (burn-in and battery). `enhancement`. Fixed via
+  [PR #46](https://github.com/hachi921082-source/VirtuaLED/pull/46).
