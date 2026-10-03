@@ -30,3 +30,12 @@
 - **[#38](https://github.com/hachi921082-source/VirtuaLED/issues/38)** — Replace the placeholder
   launcher icon with a real design. `enhancement`. Fixed via
   [PR #41](https://github.com/hachi921082-source/VirtuaLED/pull/41).
+- **[#43](https://github.com/hachi921082-source/VirtuaLED/issues/43)** — MainActivity can appear in
+  the foreground instead of the real lock screen after unlocking from a fake-sleep session. `bug`.
+  Fixed via [PR #45](https://github.com/hachi921082-source/VirtuaLED/pull/45).
+- **[#47](https://github.com/hachi921082-source/VirtuaLED/issues/47)** — Make issue #36's
+  already-seen session suppression user-toggleable. `enhancement`. Fixed via
+  [PR #48](https://github.com/hachi921082-source/VirtuaLED/pull/48).
+- **[#49](https://github.com/hachi921082-source/VirtuaLED/issues/49)** — Detect revoked
+  full-screen-intent permission and guide the user to re-enable it. `enhancement`. Fixed via
+  [PR #50](https://github.com/hachi921082-source/VirtuaLED/pull/50).
