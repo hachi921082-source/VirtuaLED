@@ -31,8 +31,13 @@
     (Follow-Up Session)
 19. Issue #23 Fixed (PR #25), a Notification-Exclusion Feature Scoped and Split into Issues
     #26/#27, and Issue #26 Implemented and Merged (PR #28) (Follow-Up Session)
-20. Still Open
-21. Recommended Next Step
+20. A Very Long Follow-Up Session: Issues #27/#30/#32/#33/#36/#37/#38/#43 Shipped, App Icon and
+    License Screen Added, Localization Completed (Last `other/`-Tier Item), and an Unresolved
+    Full-Screen-Intent App Ops Investigation In Progress
+21. FSI Investigation Closed (QA #24), Issues #47/#49/#44 Shipped (PRs #48/#50/#46) (Follow-Up
+    Session)
+22. Still Open
+23. Recommended Next Step
 
 ## 1. What Happened This Session
 
@@ -1147,104 +1152,108 @@ A live on-device verification pass was started (Wi-Fi adb to arrows We2 Plus / `
 
 **Not yet done**: the user had not confirmed on-device that excluding an app via the new screen actually suppresses its notifications before asking to commit/PR/merge — the APK was installed on `M06` but no confirmation was reported back. Treat this as an open on-device verification item, not a known defect.
 
-## 20. Still Open
+## 20. A Very Long Follow-Up Session: Issues #27/#30/#32/#33/#36/#37/#38/#43 Shipped, App Icon and License Screen Added, Localization Completed (Last `other/`-Tier Item), and an Unresolved Full-Screen-Intent App Ops Investigation In Progress
 
-- **`localization-additional-languages`** is now the only feature remaining from the original
-  10-item `other/`-tier list (§12) — not started. Per its own plan's design, it should track
-  whatever `strings.xml` keys exist at implementation time, and this session's UI overhaul (§18)
-  added/renamed a substantial number of them — see the new memory rule (§18) about flagging new
-  keys, and expect to sweep the *current* `strings.xml` rather than one from an earlier handoff.
-- **[Issue #26](https://github.com/hachi921082-source/VirtuaLED/issues/26)'s `ExclusionSettingsScreen`
-  has not been confirmed on a real device yet** — implemented, built, and installed on `M06` this
-  session (§19), but the user asked to commit/PR/merge before reporting back a confirmed test.
-  Verify: toggling an app ON in the exclusion list actually stops its notifications from
-  triggering the indicator (slot, session, and peek-preview text all included).
-- **[Issue #27](https://github.com/hachi921082-source/VirtuaLED/issues/27)** — excluding an app
-  directly from an actual received notification (not yet started, deliberately deferred until
-  after #26 landed — it now has). Needs a new "seen apps" persisted history mechanism (nothing
-  currently tracks which apps have ever notified, only what's *currently* pending) plus a new UI
-  surface — both left as open design questions in the issue itself, to be resolved when picked up.
-- **Real premium-gating mechanism, price point, and the Play Console distribution-model
-  transition** needed for actual billing are all still explicitly undecided (`docs/QA.md` #22).
-  **Do not start Play Console/distribution-model work, or notification-listener-permission
-  Play-review prep, and do not proactively raise or suggest picking this item up** — the user has
-  twice now (§16, §18) set this boundary, most recently asking explicitly not to be nudged about it
-  even in "still open" summaries; answer if asked directly, otherwise leave it alone.
-- **`docs/QA.md` #16** — OEM ambient/doze wakefulness quirk on arrows We2 Plus. §18 added evidence
-  *against* "entering `WAKEFULNESS_DOZING` alone blocks the launch" (zero reproductions across a
-  whole Wi-Fi-adb, no-USB-cable session), consistent with but not proof of the original
-  USB-interference hypothesis. The battery-only (no adb at all) test this item also asks for is
-  still undone. Not a blocker; a confirmed reliable workaround (force-stop + relaunch) exists either
-  way.
-- **`docs/QA.md` #19** — `auto-stop-conditions`/quiet-hours' "alarm fires while a session is
-  visibly active → force-end" path is still verified by code review only, not a live real-time
-  test (carried over unchanged for several sessions — the test device's aggressive re-lock timing
-  keeps interrupting the timed setup needed). Not a blocker.
+This session opened by reading the previous handoff and ran for an extremely long time, covering far more ground than a typical follow-up session. Context ran out before the final investigation (see the end of this section) could be resolved — **this was the most important thing for the next session to pick up** — resolved in §21.
+
+**Issue #27 implemented and merged (PR #29)**: "seen apps only" filter added to the existing `ExclusionSettingsScreen` instead of a separate screen (user decision) — new `SeenAppsHistory` (DataStore set of packageNames that have ever notified), recorded from both `onNotificationPosted()` and the `onListenerConnected()` resync, independent of exclusion status. Live-confirmed on `M06`.
+
+**Issue #30 found, filed, and fixed (PR #31)**: live investigation (triggered by a user question about proximity-sensor behavior) found the fake-sleep session only ever started on a genuine `ACTION_SCREEN_OFF` broadcast — a notification arriving while the screen was *already* off never triggered anything until the next manual screen cycle. Fixed by wiring `PendingNotificationsRepository`'s pre-existing but unused `onBecameNonEmpty` hook into `FakeSleepSessionController`, gated on `PowerManager.isInteractive() == false`. Confirmed live multiple times, including the "nobody touches the phone at all" case (screen auto-wakes via the full-screen-intent itself).
+
+**Issue #33: the high-importance blink cue removed entirely (PR #34)**, not just defaulted off — live use found it disorienting combined with burn-in repositioning. High importance is now 1.5x size only. `BlinkSettings` and all blink UI/state deleted. `docs/DECISIONS.md` §15 marked superseded. **Process note**: this was implemented directly on a "やめよう"/"除外して" instruction without filing an issue first; the user pushed back ("勝手な判断じゃないか?"), and the issue was filed retroactively per their request. Recorded as memory `feedback_issue_first_even_when_instruction_is_direct` — a direct instruction does not waive this project's issue-first convention for real feature changes.
+
+**Issue #32 found via code reading and fixed (PR #35)**: distinct from the already-fixed #23, this covered the *gap between* burn-in reposition jumps — a slot's `highImportance` (and therefore its 1.5x footprint) can change mid-interval without the group's position being re-validated. Fixed with `BurnInProtector.onSlotsMayHaveChanged()`, called from `recomputeIndicatorState()`, which re-clamps the *current* offset into the new bounds (not a fresh random jump).
+
+**Off-session work**: the built debug APK was sent to the user via `SendUserFile` and copied into the repo root (gitignored, `*.apk` already excluded) per explicit request — this became a recurring ask throughout the session (`app-debug.apk`, later `VirtuaLED.apk`, kept updated after most merges). A Galaxy A30 (Android 10) install was investigated — `パッケージの解析中に問題が発生しました` traced to `minSdk 31` > the device's API 29; a **test-only** build with `minSdk` temporarily lowered to 29 was produced and sent, then the manifest reverted (master's `minSdk` was never actually changed — this project's official support scope is still only the two devices in `docs/DECISIONS.md` §11). The real blocker on that device turned out to be Samsung's aggressive background-app battery management, not notification-listener onboarding; a plain-language, checkbox-style setup-guide Artifact was published for a non-technical recipient to follow (notification access + battery-optimization exclusion), and it reportedly worked.
+
+**Issue #36: suppress repeated re-notification for already-seen content — went through a real design correction mid-flight.** The first pass only filtered `PeekInteractionController.buildPreviewLines()` (skip already-shown text). Live testing showed this didn't address the actual complaint — the dot/auto-wake kept re-triggering for the same stale content. Corrected (same PR #39, title/description updated before merge): `FakeSleepSessionController.tryStartSession()` now refuses to start a session at all when every pending notification is already-seen, **except** when at least one is high-importance (mirrors the existing "size reflects true pending status regardless of seen-state" rule) — the preview-text fallback became structurally unreachable once this landed and was removed. This session later added a **toggle** for the whole feature (`RepeatSuppressedNotificationSettings`, default ON) after the user pointed out a real opposing need: forgetful users want the repeat reminders. **This toggle's code was left uncommitted** — committed and merged in §21 (issue #47).
+
+**Freemium/Booth distribution licensing consultation** (direct discussion, no code): confirmed all dependencies are Apache 2.0 (no GPL/LGPL conflict with freemium distribution), identified that the per-file XML attribution comments for the 5 category icons aren't visible to anyone downloading a built APK, and that notification-content handling should be disclosed. Led directly to:
+
+**Issue #37: in-app license/credits screen (PR #40)** — new `LicenseScreen.kt`, small unobtrusive text link at the bottom of the main screen (not a full navigation row). Covers icon attribution, library licenses, and a plain-language note on notification-data handling.
+
+**App icon replaced (Issue #38, PR #41)**: the placeholder white circle was replaced. Three concepts were designed and presented in a comparison Artifact (circle/squircle/rounded-square mask previews): "灯" (the dot itself), "夜番" (crescent moon + light, ties to the sleep-gated mechanism), and "灯りの角" (phone silhouette + corner dot, callback to the project's original "NoLED-Revive" name) — the user picked the third, then asked for a less "lonely" background, refined with a warm radial gradient and a soft glow on the dot. Implemented as real `ic_launcher_background.xml`/`ic_launcher_foreground.xml` vector drawables (gradient via `<aapt:attr>`, glow via layered semi-transparent circles — VectorDrawable has no blur).
+
+**`localization-additional-languages` implemented (PR #42) — the last of the original 10-item `other/`-tier list.** Found and corrected a real plan/reality mismatch before implementing: the plan specified default `values/` = English with a `values-ja/` folder for Japanese, but every single feature across the whole project had already shipped its strings in Japanese directly into the default folder. Rather than a risky mass-rewrite, the plan and `docs/detailed-spec.md` §10 were corrected to match reality: `values/` stays Japanese, `values-en/` added (not `values-ja/`). All 64 keys translated into English and Simplified Chinese, verified identical key sets across all three files, confirmed live via Android 13+ per-app locale override (`cmd locale set-app-locales`, no system-wide language change needed) without disrupting the device's own language, then reverted. **A new `strings.xml` key was added later in this same session (`settings_repeat_suppression_label`, for the toggle above) — translated into all three locales at the time it was added**, so this doesn't currently need a follow-up sweep, but future features will still need one per the plan's own "keeping in sync" note.
+
+**Root-level `README.md` added** (Japanese, per explicit request — this project's primary distribution audience) — project purpose, features, supported devices, build instructions, distribution status, pointer to `docs/`.
+
+**Issue #43 found and fixed (PR #45)**: user reported `MainActivity` intermittently appearing instead of the real lock screen after unlocking from a session. Root-caused via manifest reading: `FakeSleepActivity` had no explicit `taskAffinity`, so it defaulted to the same affinity as `MainActivity`; `launchMode="singleTask"` would then reuse `MainActivity`'s existing task (if still alive in recents) instead of a fresh one, and finishing the session revealed `MainActivity` sitting underneath. Fixed with `android:taskAffinity=""`. Build-verified, not yet live-tested, but merged (user-authorized, low-risk single manifest attribute).
+
+**Issue #44 found and implemented, not yet merged (PR #46, open)**: user asked whether the status/navigation bars staying lit during a session risked burn-in — they do (fixed position, never repositioned by `BurnInProtector`, unlike the indicator) and waste battery. Fixed with `WindowInsetsControllerCompat` hiding `systemBars()`, `BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE` for edge-swipe recall. Built and installed on-device once, but the session moved on to other work before a live session was actually run to visually confirm the bars disappear — **treat as implemented-but-unverified**, not confirmed-working.
+
+**Unresolved at context-limit: a full-screen-intent App Ops investigation, in progress.** The user reported that after the most recent fixes, notifications stopped appearing on the fake-sleep screen at all. Live investigation found `FSI_REQUESTED_BUT_DENIED` on the posted notification despite the manifest permission showing `granted=true` — `adb shell cmd appops get com.virtualed.app USE_FULL_SCREEN_INTENT` showed an explicit **`deny`** at both the UID and package level. Forcing it to `allow` via `adb shell cmd appops set --uid <uid> USE_FULL_SCREEN_INTENT allow` immediately fixed it (confirmed live — `FakeSleepActivity` launched correctly, flag cleared). This is an OS App Ops state, not a code regression from this session's changes. A full uninstall + clean reinstall showed the App Op at `"default"` mode (not an explicit `deny`) — so this isn't something every fresh install hits automatically. **The user then revealed the test device had received an Android OS update between the last successful test and now** — the leading hypothesis is that the update re-evaluated this already-installed app's full-screen-intent privilege under a newer, stricter policy and reset it to `deny`, and that a *truly* fresh install's `"default"` mode may or may not actually behave as `allow` on this updated OS version (not yet confirmed either way). The user was mid-way through onboarding + switch-on on the freshly-reinstalled app, to test whether `"default"` mode works, when context ran out. **Resolved in the following session — see §21.**
+
+## 21. FSI Investigation Closed (QA #24), Issues #47/#49/#44 Shipped (PRs #48/#50/#46) (Follow-Up Session)
+
+**FSI App Ops investigation (§20) closed — not a code or policy problem.** On `M06` (now Android 16 / API 36), the freshly-reinstalled app with the op at `default` launched `FakeSleepActivity` correctly. Both paths were checked: screen-off-then-arrival (issue #30) and screen-off-with-pending. The indicator was confirmed visually. `cmd appops get` can still print a recent `rejectTime` in `default` mode without anything actually being blocked. Conclusion: the OS update reset the already-installed app's op to `deny` as a one-off. Written up as `docs/QA.md` #24 (resolved), including a "check `cmd appops get` first after an OS update" gotcha.
+
+**Follow-up live verification: the system switch maps directly to the App Op.** Settings > Apps > Special app access > Full-screen notifications ("このアプリからの全画面通知を許可する"):
+- OFF → uid `deny`. Reproduced the exact `FSI_REQUESTED_BUT_DENIED` symptom.
+- ON → uid `allow`. FSI works again, **no reinstall needed**.
+
+Recorded on issue #49.
+
+**Issue #47 / PR #48 merged — repeat-suppression toggle.** The §20 toggle code that had been sitting uncommitted on `master` got an issue, a branch, per-file commits, and a `docs/DECISIONS.md` §25 addendum explaining why the "no toggle" stance was reversed. The user confirmed it live.
+
+**Issue #49 / PR #50 merged — detect a revoked FSI permission.** The new behavior:
+- `PermissionChecker.canUseFullScreenIntent()` (`NotificationManager.canUseFullScreenIntent()` on API 34+, always `true` below) plus `fullScreenIntentSettingsIntent()` (`ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT` + `package:` URI, which lands directly on this app's page).
+- Onboarding has a second card and completes only when both listener access and FSI are granted.
+- Root routing still gates on listener access only. A later FSI-only revocation is handled by `MainSwitchScreen`, not onboarding.
+
+`MainSwitchScreen` rechecks on every `ON_RESUME`. While FSI is denied, the main switch is disabled and a red warning with an "Open settings" button is shown. If the feature was ON when the revocation is detected, it is switched OFF automatically.
+
+All three behaviors were user decisions, recorded on the issue. `docs/detailed-spec.md` §2/§15 updated. 4 new string keys, translated in all 3 locales at add time. Every flow was live-verified on `M06`, including onboarding with both permissions revoked via adb.
+
+**Issue #44 / PR #46 merged — hide the system bars during fake-sleep.** Before the fix, a screenshot showed the 3-button nav bar drawn in gray during a session. The status bar was already hidden by the theme's `windowFullscreen`, which is why it looked partly done. After the fix, `navigationBars`/`statusBars` are both `visible=false`, and swiping up from the bottom edge shows them transiently before they auto-hide. Pressing Home while the bars are shown returns to the real (PIN-gated) lock screen — correct, since `FakeSleepActivity` only occludes the keyguard. The branch had `master` merged in before testing.
+
+All three PRs were merged **via local `git merge --no-ff` + push**, explicitly authorized by the user. GitHub correctly marked each PR as merged and auto-closed the issues. `docs/RESOLVED-ISSUES.md` was updated for #44/#47/#49. The merged branches were deleted locally and on the remote.
+
+**Testing gotcha found:** `adb shell cmd notification post` parses its args oddly (`-t title TAG TEXT` with multi-word text). Two test posts ended up with the same tag `check`, so the second one had the same key as an already-seen notification. Issue #36's suppression then correctly refused to start a session, which looked like a bug at first. Use a unique single-word TAG and TEXT per test post (e.g. `cmd notification post navswipe4 swipetest4`). Shell test notifications also can't be cancelled via `cmd notification` on this build — the user has to swipe them away.
+
+## 22. Still Open
+
+- **Non-main-screen start paths don't check FSI** (issue #49 scope note): `BootCompletedReceiver`
+  (auto-start on boot) and the FGS notification's "オンにする" action (`OnOffActionReceiver`) can
+  start the service while FSI is denied. The feature is then switched OFF the next time
+  `MainSwitchScreen` is opened. Not decided whether to also gate these paths — ask the user before
+  filing/implementing.
+- **`docs/QA.md` #16 and #19** (carried over from much earlier sessions, both non-blocking) — still
+  not resolved.
+  - #16 is the OEM ambient/doze wakefulness quirk on arrows We2 Plus. The battery-only (no adb)
+    test is still undone, and a reliable force-stop + relaunch workaround exists.
+  - #19 is the quiet-hours "alarm fires while a session is visibly active → force-end" path, which
+    is still verified by code review only.
 - **This repo has no worktree isolation between concurrent sessions, and stray commits can land
-  inside another session's branch, not just move `master`/`HEAD`** (discovered §16, sharpened §17)
-  — before any future concurrent-session work, re-verify branch/HEAD state fresh (`git status`,
+  inside another session's branch, not just move `master`/`HEAD`** (discovered §16, sharpened §17).
+  Before any future concurrent-session work, re-verify branch/HEAD state fresh (`git status`,
   `git branch --show-current`, `git log --oneline`, `git reflog`) rather than trusting an earlier
-  read in the same conversation, and read §17's "practical addition" paragraph if a mixed-branch
-  situation like this one comes up again. Not triggered again in §18's session (no concurrent
-  session was active), but the risk is structural, not one-time.
-- **Wi-Fi adb pairing/connect addresses rotate on every reconnect** (discovered §18) — always ask
-  the user for the device's current "Wireless debugging" screen values fresh rather than assuming a
-  previously-used address still works; `adb pair` itself persists, only the connect address changes.
+  read in the same conversation. Read §17's "practical addition" paragraph if a mixed-branch
+  situation comes up again. The risk is structural, not one-time.
+- **Wi-Fi adb pairing/connect addresses rotate on every reconnect** (discovered §18). Always ask
+  the user for the device's current "Wireless debugging" screen values fresh. `adb pair` itself
+  persists; only the connect address changes. (§21 used a USB connection, `zh2ba2jx5j`.)
 - **A successful `assembleDebug` does not mean the connected device is running that build**
-  (discovered the hard way in §18, after several rounds of code changes without reinstalling) —
-  always `adb install -r` the freshly-built APK before asking the user to verify anything on a real
-  device, every time, not just after the first install of a session.
-- **Package name placeholder** (`com.virtualed.app`): still unconfirmed, not urgent (carried over).
-- **Old `NO-LED` folder cleanup** (`c:\Users\<user>\vscode2\NO-LED`): status not re-checked in
-  several sessions; carried over.
-- **App icon**: interim Material Symbols plan stands, final art deferred (carried over).
-- **Secure-keyguard mechanism** (`docs/DECISIONS.md` §18): confirmed on arrows We2 Plus; a confirmed
-  secure-lock pass specifically on the Sharp AQUOS sense9 is still outstanding (carried over
-  unchanged for several sessions now).
+  (discovered §18). Always `adb install -r` the freshly-built APK before asking the user to verify
+  anything on a real device — every time, not just after the first install of a session.
+- **adb is not on `PATH`** in this environment. Use `$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe`.
+- **PIN entry during manual device testing**: only needed for the very first unlock of a testing
+  sequence.
+- **Secure-keyguard mechanism** (`docs/DECISIONS.md` §18): confirmed on arrows We2 Plus. A secure-lock
+  pass specifically on the Sharp AQUOS sense9 is still outstanding (carried over).
+- Package name placeholder (`com.virtualed.app`) and the old `NO-LED` folder cleanup
+  (`c:\Users\<user>\vscode2\NO-LED`) are both carried over unchanged and still not urgent.
+- **Billing/Play Console/distribution-model work remains explicitly off-limits unless asked
+  directly** — reaffirmed multiple times across sessions (`docs/QA.md` #22). Do not raise it
+  proactively, including in "what's left" summaries.
 
-## 21. Recommended Next Step
+## 23. Recommended Next Step
 
-**MVP is fully complete** (§11). Of the original 10-item `other/`-tier list (§12), 9 are now done —
-`dnd-handling` (PR #8), `auto-stop-conditions` ×3 (PRs #9/#10/#14), `burn-in-protection` (PR #11),
-`indicator-color-customization` (PR #12, revised to 5 presets via issue #17/PR #20),
-`importance-based-sizing` (PR #13), `category-icons-and-assets` (PR #15), and
-`multi-notification-stacking` (PR #16) are all merged, and the freemium-driven
-`source-app-icon-indicator-mode` (PR #19) shipped alongside them (§18). **Only
-`localization-additional-languages` remains** from that original list; issues #23 and #26 (§19,
-this session) were separate bug-fix/enhancement work outside that list.
+No mid-flight work. Everything from §20's open list is resolved, merged, or carried over above.
 
-1. **Confirm [Issue #26](https://github.com/hachi921082-source/VirtuaLED/issues/26)'s
-   `ExclusionSettingsScreen` on a real device** (§19/§20) — toggle an app ON in the new exclusion
-   list, send it a real notification, confirm the indicator never reacts to it at all (no slot, no
-   session start, not in the peek-preview text). The APK is already installed on `M06`.
-2. **`localization-additional-languages`** — the last item from the original `other/`-tier list.
-   Read its own `PLAN.md` first (it should specify which languages/how the translation pass works),
-   then sweep the *current* `app/src/main/res/values/strings.xml` — §18's UI overhaul and §19's
-   `ExclusionSettingsScreen` both added/renamed keys, so don't work from an older mental model of
-   what strings exist.
-3. **[Issue #27](https://github.com/hachi921082-source/VirtuaLED/issues/27)** (exclude an app
-   directly from an actual received notification) — pick up when there's appetite for it; needs a
-   new "seen apps" persisted history mechanism and a new UI surface, both left as open design
-   questions in the issue itself (§19).
-4. **Leave billing mechanism, pricing, and Play Console/distribution-model work untouched, and do
-   not proactively raise it** — `docs/QA.md` #22, boundary reaffirmed twice now (§16, §18). This
-   applies to status summaries and "what's left" lists too, not just implementation work.
-5. **`docs/QA.md` #16 and #19** (both non-blocking, both carried over) are candidates for
-   opportunistic follow-up if a device is available and cooperative, but neither blocks anything —
-   see §20 for exactly what each still needs.
-6. If more live on-device testing is needed: `docs/QA.md` note above re Wi-Fi adb addresses
-   rotating on reconnect, and re `adb install -r` before every verification round, not just the
-   first. §14's closing paragraph still has the established pattern for working around this
-   device's short re-lock timer. For posting *multiple distinct-app* test notifications, `adb shell
-   cmd notification post` still can't do it (§17's finding) — use real installed apps. `adb.exe` may
-   not be on `PATH` in a fresh session/shell — see §19 for the full path used this session.
-7. **If working in this repo at the same time as another session, read §17's "practical addition"
-   paragraph before touching git** — there is no worktree isolation, stray commits can land inside
-   another session's own branch (not just move `master`/`HEAD`), and re-verifying git state fresh
-   (`git status`, `git branch --show-current`, `git log --oneline`, `git reflog`) before trusting
-   any earlier read in the same conversation is the safest default.
-8. For small, well-understood, narrowly-scoped fixes, direct main-session implementation (as done
-   for issue #17, `docs/QA.md` #17, §18's UI overhaul, and this session's issues #23/#26, §19) is an
-   established and accepted alternative to the full `developer-lite`/`reviewer-lite` flow — use
-   judgment on which fits a given task, the full flow is still the default for anything larger or
-   less well-understood.
+1. Ask the user whether the non-main-screen start paths (boot, FGS notification action) should also
+   gate on FSI (§22, first item). If yes: issue first, then branch/PR/live-verify.
+2. `docs/QA.md` #16/#19 remain available for opportunistic follow-up but are not blockers.
+3. Any new `strings.xml` key still needs translating into `values-en/` and `values-zh-rCN/` at add
+   time (per the localization plan's "keeping in sync" note).
+4. Do not raise billing/Play Console work proactively (`docs/QA.md` #22).
