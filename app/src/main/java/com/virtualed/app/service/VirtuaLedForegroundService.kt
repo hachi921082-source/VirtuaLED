@@ -27,6 +27,7 @@ import com.virtualed.app.data.KeywordRegistry
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.data.PremiumState
 import com.virtualed.app.data.QuietHoursSettings
+import com.virtualed.app.data.RepeatSuppressedNotificationSettings
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.overlay.FakeSleepSessionController
 import com.virtualed.app.receiver.OnOffActionReceiver
@@ -102,6 +103,10 @@ class VirtuaLedForegroundService : Service() {
         // docs/plans/other/multi-notification-stacking/PLAN.md §5 — SlotIcon の件数バッジ描画は
         // Compose の同期パスのため、同じ理由でサービス起動時に読み込む。
         serviceScope.launch { CountBadgeSettings.refreshCache(applicationContext) }
+
+        // GitHub issue #36 フォローアップ — FakeSleepSessionController.tryStartSession() の
+        // 同期判定で使うため、同じ理由でサービス起動時に読み込む。
+        serviceScope.launch { RepeatSuppressedNotificationSettings.refreshCache(applicationContext) }
 
         // docs/plans/other/source-app-icon-indicator-mode/PLAN.md §8 — SlotIcon のアプリアイコン
         // 描画可否判定 (プレミアム解放フラグ + トグル設定) も同じく Compose の同期パスのため、
