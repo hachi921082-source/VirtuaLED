@@ -36,3 +36,6 @@
 - **[#47](https://github.com/hachi921082-source/VirtuaLED/issues/47)** — Make issue #36's
   already-seen session suppression user-toggleable. `enhancement`. Fixed via
   [PR #48](https://github.com/hachi921082-source/VirtuaLED/pull/48).
+- **[#49](https://github.com/hachi921082-source/VirtuaLED/issues/49)** — Detect revoked
+  full-screen-intent permission and guide the user to re-enable it. `enhancement`. Fixed via
+  [PR #50](https://github.com/hachi921082-source/VirtuaLED/pull/50).
