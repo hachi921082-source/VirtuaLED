@@ -261,3 +261,31 @@ and contradictions before writing the MVP feature plans).
     `onStartCommand()` calls, since the field itself is now only assigned after registration
     actually completes (mirroring the same async-registration-then-field-assignment shape already
     used for `batteryLevelReceiver`, `docs/QA.md` #18's now-resolved fix).
+
+24. ~~After a device OS update, `FakeSleepActivity` stopped launching entirely: notifications
+    posted by the app carried `FSI_REQUESTED_BUT_DENIED` even though `dumpsys package` still showed
+    `android.permission.USE_FULL_SCREEN_INTENT: granted=true`. Is this a code regression, or does
+    a newer Android policy now require more than the manifest permission for a non-role-holder app
+    to use full-screen intents?~~ Resolved (2026-10-03): neither — it was a one-off OS App Ops
+    state, not a code or policy problem. Findings from live testing on arrows We2 Plus (`M06`)
+    after it updated to Android 16 (API 36):
+    - Before the fix, `adb shell cmd appops get com.virtualed.app USE_FULL_SCREEN_INTENT` showed an
+      explicit `deny` at both UID and package level. The leading explanation is that the OS update
+      re-evaluated the already-installed app's full-screen-intent privilege and reset it to `deny`.
+      Forcing `adb shell cmd appops set --uid <uid> USE_FULL_SCREEN_INTENT allow` fixed it
+      immediately.
+    - A full uninstall + clean reinstall left the op at `default` (no explicit `deny`). In that
+      state FSI works correctly: both the screen-off-then-arrival path (issue #30) and the
+      screen-off-with-pending path woke the screen via `com.android.systemui:full_screen_intent`
+      and launched `FakeSleepActivity`, and the indicator was visually confirmed on-device.
+    - `cmd appops get` may still print a recent `rejectTime` while in `default` mode; this did not
+      block the launch and is not by itself evidence of a problem — check the actual
+      `FakeSleepActivity` launch (logcat `full_screen_intent` wake / `ActivityTaskManager START`)
+      instead.
+    - No code, manifest, or `docs/detailed-spec.md` change was needed; the manifest permission is
+      still sufficient for a sideloaded build on Android 16.
+
+    **Known gotcha for future testing**: if full-screen intents stop working after a device
+    software update, check `adb shell cmd appops get <pkg> USE_FULL_SCREEN_INTENT` first. If it
+    shows `deny`, restore it with `cmd appops set --uid <uid> USE_FULL_SCREEN_INTENT allow` or
+    reinstall the app, before investigating the code.
