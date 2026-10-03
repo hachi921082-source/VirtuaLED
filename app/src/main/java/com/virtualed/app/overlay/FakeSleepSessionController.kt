@@ -19,6 +19,7 @@ import com.virtualed.app.data.KeywordRegistry
 import com.virtualed.app.data.NotificationSeenState
 import com.virtualed.app.data.PendingNotificationsRepository
 import com.virtualed.app.data.QuietHoursState
+import com.virtualed.app.data.RepeatSuppressedNotificationSettings
 import com.virtualed.app.importance.ImportanceResolver
 
 /**
@@ -105,11 +106,15 @@ class FakeSleepSessionController(
         // 新規に知らせることが何も無いため、ドットも一切表示せずセッション自体を起動しない。
         // ただし高重要度の通知が1件でもあれば、既読かどうかに関わらず起動する —
         // 「未処理の重要な用件が残っている」事実はサイズ表示 (1.5x) と同様、既読状態とは
-        // 無関係に反映し続けるべきもの (このアプリの既存方針)。
-        val keywordsByApp = { pkg: String -> KeywordRegistry.keywordsCache[pkg] ?: emptyList() }
-        val allSeen = snapshot.all { NotificationSeenState.isSeen(it.key) }
-        val anyHighImportance = ImportanceResolver.isHighImportance(snapshot, keywordsByApp)
-        if (allSeen && !anyHighImportance) return
+        // 無関係に反映し続けるべきもの (このアプリの既存方針)。この抑制自体は設定でOFFにでき、
+        // OFF の場合は既読状態を一切見ずに常に起動する (物忘れしやすいユーザー向け、issue #36 の
+        // フォローアップ)。
+        if (RepeatSuppressedNotificationSettings.enabledCached) {
+            val keywordsByApp = { pkg: String -> KeywordRegistry.keywordsCache[pkg] ?: emptyList() }
+            val allSeen = snapshot.all { NotificationSeenState.isSeen(it.key) }
+            val anyHighImportance = ImportanceResolver.isHighImportance(snapshot, keywordsByApp)
+            if (allSeen && !anyHighImportance) return
+        }
         startSession()
     }
 
