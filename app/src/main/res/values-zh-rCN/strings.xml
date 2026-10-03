@@ -24,6 +24,8 @@
 
     <string name="settings_app_launch_label">启用应用</string>
 
+    <string name="settings_repeat_suppression_label">已读通知不再重复提醒</string>
+
     <string name="settings_show_during_dnd">在勿扰模式(DND)下也显示</string>
 
     <string name="settings_battery_threshold_label">电池电量低于 %1$d%% 时自动停止</string>

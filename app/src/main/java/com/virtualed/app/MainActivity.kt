@@ -61,6 +61,7 @@ import com.virtualed.app.data.FeatureEnabledState
 import com.virtualed.app.data.IndicatorColorSettings
 import com.virtualed.app.data.PremiumState
 import com.virtualed.app.data.QuietHoursSettings
+import com.virtualed.app.data.RepeatSuppressedNotificationSettings
 import com.virtualed.app.overlay.FakeSleepActivityHolder
 import com.virtualed.app.permission.PermissionChecker
 import com.virtualed.app.service.VirtuaLedForegroundService
@@ -229,6 +230,15 @@ fun MainSwitchScreen(
         appIconIndicatorEnabled = AppIconIndicatorSettings.getEnabled(context)
     }
 
+    // GitHub issue #36 フォローアップ — 既読通知の再通知抑制設定。
+    // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (ON) を仮表示する。
+    var repeatSuppressionEnabled by remember {
+        mutableStateOf(RepeatSuppressedNotificationSettings.DEFAULT_ENABLED)
+    }
+    LaunchedEffect(Unit) {
+        repeatSuppressionEnabled = RepeatSuppressedNotificationSettings.getEnabled(context)
+    }
+
     // docs/plans/other/auto-stop-conditions/PLAN-3-quiet-hours.md §8 — クワイエットアワー設定。
     // 初期値は DataStore からの非同期読み込み待ちの間、デフォルト値 (無効/01:00-07:00) を仮表示する。
     var quietHoursWindow by remember { mutableStateOf(QuietHoursSettings.DEFAULT_WINDOW) }
@@ -328,6 +338,17 @@ fun MainSwitchScreen(
                     label = stringResource(R.string.settings_exclusion_settings_row_label),
                     buttonText = stringResource(R.string.settings_row_button_label),
                     onClick = onOpenExclusionSettings,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+                SettingsSwitchRow(
+                    label = stringResource(R.string.settings_repeat_suppression_label),
+                    checked = repeatSuppressionEnabled,
+                    onCheckedChange = { checked ->
+                        repeatSuppressionEnabled = checked
+                        coroutineScope.launch {
+                            RepeatSuppressedNotificationSettings.setEnabled(context, checked)
+                        }
+                    },
                     modifier = Modifier.padding(top = 16.dp),
                 )
                 SettingsSwitchRow(
