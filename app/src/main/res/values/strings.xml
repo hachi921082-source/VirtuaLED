@@ -26,6 +26,9 @@
     <!-- MainActivity.kt の主スイッチ行ラベル (2026-08-30 追加、以前はラベル無しのスイッチのみ) -->
     <string name="settings_app_launch_label">アプリの起動</string>
 
+    <!-- GitHub issue #36 フォローアップ — 既読通知の再通知抑制 ON/OFF 設定。 -->
+    <string name="settings_repeat_suppression_label">既読の通知は繰り返し知らせない</string>
+
     <!-- docs/plans/other/dnd-handling/PLAN.md §4
          文言は 2026-08-30 に「おやすみモード」(=DND の Android 標準和名) から
          「応答不可モード(DND)」へ変更 — 「サイレントモード」(着信音のみの消音) と紛らわしい
