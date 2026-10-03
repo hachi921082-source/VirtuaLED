@@ -22,7 +22,14 @@
     <string name="onboarding_granted_label">已授权</string>
     <string name="onboarding_grant_button">授权</string>
 
+    <string name="onboarding_fsi_title">全屏通知</string>
+    <string name="onboarding_fsi_description">在设备锁定时显示 VirtuaLED 画面所必需。请在下一个画面中开启此应用的全屏通知权限。</string>
+    <string name="settings_fsi_denied_warning">由于未允许全屏通知，无法启用 VirtuaLED。请点击“打开设置”，并允许此应用的全屏通知。</string>
+    <string name="settings_fsi_open_settings_button">打开设置</string>
+
     <string name="settings_app_launch_label">启用应用</string>
+
+    <string name="settings_repeat_suppression_label">已读通知不再重复提醒</string>
 
     <string name="settings_show_during_dnd">在勿扰模式(DND)下也显示</string>
 

@@ -22,7 +22,14 @@
     <string name="onboarding_granted_label">Granted</string>
     <string name="onboarding_grant_button">Grant</string>
 
+    <string name="onboarding_fsi_title">Full-screen notifications</string>
+    <string name="onboarding_fsi_description">Required to show the VirtuaLED screen while the device is locked. On the next screen, turn on full-screen notifications for this app.</string>
+    <string name="settings_fsi_denied_warning">VirtuaLED can\'t be enabled because full-screen notifications aren\'t allowed. Tap \"Open settings\" and allow full-screen notifications for this app.</string>
+    <string name="settings_fsi_open_settings_button">Open settings</string>
+
     <string name="settings_app_launch_label">Enable App</string>
+
+    <string name="settings_repeat_suppression_label">Don\'t repeat already-seen notifications</string>
 
     <string name="settings_show_during_dnd">Show even during Do Not Disturb (DND)</string>
 

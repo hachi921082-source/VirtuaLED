@@ -755,3 +755,13 @@ that transition has the identical bug (nothing wakes the screen until the next u
 screen-off/on cycle) and was previously unfixed. Both transitions are now handled by one
 `setOnChangedListener` check (skip if a session is already active; otherwise check the screen state
 and try starting one) rather than two overlapping listeners.
+
+**Addendum (2026-10-03, issue #47): the suppression is now user-toggleable, default ON.** The
+original #36 fix shipped with no setting, on the assumption no one would want the old
+"keep re-notifying" behavior. That turned out wrong — forgetful users genuinely want a
+still-pending notification they glanced at but didn't act on to keep re-triggering the session.
+`RepeatSuppressedNotificationSettings` (default `true`) now gates the all-seen check in
+`tryStartSession()`: ON keeps the behavior above (including the high-importance exemption), OFF
+skips the seen-state check entirely and starts a session whenever anything is pending. Default ON
+because the #36 complaint is the more common case; OFF is an opt-in for users who prefer the
+repeated reminders.

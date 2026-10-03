@@ -23,8 +23,17 @@
     <string name="onboarding_granted_label">許可済み</string>
     <string name="onboarding_grant_button">許可する</string>
 
+    <!-- GitHub issue #49 — 全画面通知の許可 (OS アップデート等で取り消されうる、docs/QA.md #24) -->
+    <string name="onboarding_fsi_title">全画面通知</string>
+    <string name="onboarding_fsi_description">ロック中に VirtuaLED の画面を表示するために必要です。次の画面で「このアプリからの全画面通知を許可する」をオンにしてください。</string>
+    <string name="settings_fsi_denied_warning">全画面通知が許可されていないため、VirtuaLED を起動できません。「設定を開く」から「このアプリからの全画面通知を許可する」をオンにしてください。</string>
+    <string name="settings_fsi_open_settings_button">設定を開く</string>
+
     <!-- MainActivity.kt の主スイッチ行ラベル (2026-08-30 追加、以前はラベル無しのスイッチのみ) -->
     <string name="settings_app_launch_label">アプリの起動</string>
+
+    <!-- GitHub issue #36 フォローアップ — 既読通知の再通知抑制 ON/OFF 設定。 -->
+    <string name="settings_repeat_suppression_label">既読の通知は繰り返し知らせない</string>
 
     <!-- docs/plans/other/dnd-handling/PLAN.md §4
          文言は 2026-08-30 に「おやすみモード」(=DND の Android 標準和名) から
