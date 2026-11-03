@@ -47,3 +47,7 @@ Sharp AQUOS sense9、FCNT arrows We2 Plusの2機種でのみ動作確認して�
 ## ドキュメント
 
 詳しい仕様・設計判断・実装計画は`docs/`ディレクトリを参照してください（`docs/README.md`が構成の索引です）。ライセンス表記・使用ライブラリについてはアプリ内の「ライセンス情報」画面にまとめています。
+
+## ライセンス
+
+[MIT License](LICENSE)
