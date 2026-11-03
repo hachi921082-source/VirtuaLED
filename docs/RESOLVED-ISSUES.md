@@ -42,7 +42,6 @@
 - **[#44](https://github.com/hachi921082-source/VirtuaLED/issues/44)** — Hide the status and
   navigation bars during a fake-sleep session (burn-in and battery). `enhancement`. Fixed via
   [PR #46](https://github.com/hachi921082-source/VirtuaLED/pull/46).
-
 - **[#51](https://github.com/hachi921082-source/VirtuaLED/issues/51)** — Prepare repository for
   public release (MIT license, scrub local paths). `documentation`. Fixed via
   [PR #52](https://github.com/hachi921082-source/VirtuaLED/pull/52).
